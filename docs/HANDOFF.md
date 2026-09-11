@@ -6,7 +6,7 @@ Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~
 
 **P01.T1 complete; P01.C1 passed. P01 remains in progress.** T2/T3 and C2/C3 are pending; C4 has actual native-shell/cleanup evidence but still awaits the T3 launcher/decisions. No backend schema, auth, pairing, game, question import or multi-user gameplay implementation. The seven-context shell test proves preferences/storage isolation, not authenticated game users or real SSE.
 
-Changes include the shared static SvelteKit shell, strict TS6/Svelte5, generated shadcn button/native-select, persisted light/dark/system theme, honest role-entry previews, shared `/display`, exact pnpm/Cargo pins and lockfiles, no native JS calls, minimal Tauri CSP/empty permissions. Native dev window actually rendered `/display`. Source baseline `63b93b6`; the scaffold commit and post-commit verification identity are recorded in `docs/evidence/P01.md`/Git log. No unrelated worker changes.
+Changes include the shared static SvelteKit shell, strict TS6/Svelte5, generated shadcn button/native-select, persisted light/dark/system theme, honest role-entry previews, shared `/display`, exact pnpm/Cargo pins and lockfiles, no native JS calls, minimal Tauri CSP/empty permissions. Native dev window actually rendered `/display`. Scaffold commit **`f1656b2cfec75ded660a2019174d072fc63b34cb`**, built from baseline `63b93b6`, is committed and pushed. The follow-up commit updates only evidence/handoff. No unrelated worker changes.
 
 ## Consistent testing tooling — keep this choice
 
@@ -44,7 +44,7 @@ pnpm dev                       # browser localhost:5173
 pnpm tauri dev --no-watch       # stop pnpm dev first; native command starts its own
 ```
 
-Last complete pre-commit gate (`proc_6b84`, 2026-09-11T19:35:27Z log completion): frozen install/type/lint/unit/build/scaffold/shell/Cargo fmt+build/plan checks all exit 0. Unit 1, structural 3, browser 3, plan regression 7; zero retries/skips. Browser checks cover 375px, keyboard/44px host action, theme persistence/system changes, seven isolated contexts, and direct `/auth?role=host` plus `/display` reloads without native globals/page errors. Real static `build/` is served by Vite without Kit SSR middleware.
+Last complete **committed** gate on `f1656b2` (`proc_cd55`, 2026-09-11T19:39:15Z log completion): frozen install/type/lint/unit/build/scaffold/shell/Cargo fmt+build/plan checks all exit 0. Unit 1, structural 3, browser 3, plan regression 7; zero retries/skips. Browser checks cover 375px, keyboard/44px host action, theme persistence/system changes, seven isolated contexts, and direct `/auth?role=host` plus `/display` reloads without native globals/page errors. Real static `build/` is served by Vite without Kit SSR middleware.
 
 Fresh reviewer accepted T1 with a deep-link coverage note; the extra direct auth check was added and all gates rerun. Logs, review, code manifest and synthetic browser/native screenshots are ignored under `.artifacts/p01/` / `.artifacts/shell/`; sanitized summaries/provenance are in `docs/evidence/P01.md`.
 
@@ -56,7 +56,7 @@ Tauri =2.11.5 / tauri-build =2.6.3; Rust 1.91.1 and resolver 3, locked dependenc
 
 ## Processes and artifacts
 
-No running dev/native/backend processes. Native smoke `proc_9669` (app PID 29688, own window 99212, Vite port 5173) was stopped; app exit and port release verified. Shell runs owned preview port 4173 and shut it down. Final gates `proc_6b84` exited. No backend depots created, no unknown listener killed. Native screenshot proves only the shared dev shell, not packaged/native gameplay or Android TV acceptance.
+No running dev/native/backend processes. Native smoke `proc_9669` (app PID 29688, own window 99212, Vite port 5173) was stopped; app exit and port release verified. Shell runs owned preview port 4173 and shut it down. Final committed gates `proc_cd55` exited; port 4173 clear verified. No backend depots created, no unknown listener killed. Native screenshot proves only the shared dev shell, not packaged/native gameplay or Android TV acceptance.
 
 ## Owner inputs retained for later
 
