@@ -1,14 +1,15 @@
 # Stack and version evidence
 
-Verified 2026-09-11. Registry findings and P01.T1 shell verification are distinguished below; backend/SDK/WASM capabilities still need real probes. Exact application dependencies are pinned in package.json/pnpm-lock.yaml and src-tauri/Cargo.toml/Cargo.lock. Do not use floating `latest` in CI. TrailBase remains fixed regardless of frontend changes.
+Verified 2026-09-11. Registry findings, P01.T1 shell verification and P01.T2 real backend probes are distinguished below; see P01 evidence for acceptance/review status. Exact application dependencies are pinned in package.json/pnpm-lock.yaml and src-tauri/Cargo.toml/Cargo.lock. Do not use floating `latest` in CI. TrailBase remains fixed regardless of frontend changes.
 
 | Component | Verified version / choice | Evidence |
 |---|---|---|
 | TrailBase executable | `v0.33.14-0-g3f965de7 (2026-09-10)` | Local `trail --version` |
 | Embedded SQLite | `3.53.2` | Local `trail --version`; do not confuse with OS sqlite3 |
 | TrailBase source | `3f965de7ea516c43a54ca70a495e97f0c6d991ab` | GitHub commit associated with installed release |
-| Official JS SDK `trailbase` | `0.14.1` | Registry and package.json at pinned backend commit agree |
-| `trailbase-wasm` | `0.6.0` registry stable candidate | Build/transaction API must be tested with pinned backend |
+| Official JS SDK `trailbase` | `0.14.1` + pinned SSE patch | Real CRUD/auth/ACL/SSE probes; see patches/README.md |
+| `trailbase-wasm` | `0.6.0` | Real authenticated transaction/CAS and rollback probe |
+| `@bytecodealliance/jco` | `1.32.1` | Builds fixture component; reports compatibility fallback to locked componentize-js 0.19.3 |
 | Svelte | `5.57.0` | `pnpm view svelte version` |
 | SvelteKit | `2.70.3` | `pnpm view @sveltejs/kit version` |
 | `@sveltejs/adapter-static` | `3.0.10` | Registry |
@@ -61,15 +62,27 @@ These are capability observations, not commands to mutate the original applicati
 
 Pinned release assets: https://github.com/trailbaseio/trailbase/releases/tag/v0.33.14. Both aarch64/x86_64 macOS and Linux binaries exist, as does a versioned auth UI WASM component. CI downloads exact artifacts and verifies a recorded SHA256; never installs latest. P01 must capture official digest where available or independently verify the downloaded release artifact and record provenance. Never fabricate a digest.
 
-## Unknowns to prove in P01/P02
+## P01.T2 measured contracts
 
-- Fresh-depot layout/config serialization and exact migrations directory (`migrations/main` in pinned examples); don't use stale unqualified migration paths.
-- SDK 0.14.1 stream framing/reconnect behavior on split UTF-8/SSE chunks, cleanup and refresh on reconnect. `onLoss` is not an automatic reliable-delivery guarantee.
+`pnpm test:backend -- capabilities` builds a synthetic-only WASM component, starts real v0.33.14 on an ephemeral loopback port, migrates a marked `.local/test-runs/capabilities-*` depot, and disposes it. Config is textproto, migrations live in `migrations/main/`, and components load from `wasm/*.wasm`. A per-run public readiness API exposes only a constant row, proving depot identity before any auth mutation. There is no application/dev depot or game schema yet.
+
+- `create` returns a padded URL-safe Base64 UUIDv7 string (24 characters, `==` suffix); `update`/`delete` return `undefined`. Integer timestamps are Unix **seconds**, not JS milliseconds. JSON object roundtrip needs metadata such as `CHECK(jsonschema_matches('{"type":"object"}', payload))`; `is_json` alone validates text but does not expose a structured JSON column through the Record API. `trail schema <api> --mode insert|select|update` produces schemas.
+- Ownership autofill plus SQL `_USER_`/`_REQ_`/`_ROW_` rules enforce ordinary-account isolation and prevent owner/version forgery. `FetchError` implements Error but does **not** extend it: check `instanceof FetchError` and `status`, not `instanceof Error` alone.
+- Login, forced refresh, logout and rejected reuse of the logged-out refresh token pass. Anonymous identity refresh retains the ID. This does not prove verification mail, OAuth, persisted browser auth, device pairing/expiry or immediate revocation of every old access JWT.
+- **Pinned CLI defect:** `trail user add` still inserts the removed `verified` column (`auth/cli.rs` versus migration `U1785764695__unverified_email.sql`). It fails on a fresh v0.33.14 depot. The fixture instead creates a real anonymous identity, promotes that identity with the local admin CLI, forces refresh, then uses `/api/_admin/user` to provision verified **non-admin** baseline accounts. No invented JWT, copied account, direct auth-table write, parsed bootstrap password or email delivery. This bootstrap stays outside normal UI/production flows.
+- **Pinned SDK defect:** unpatched 0.14.1 drops partial SSE frames/UTF-8 and resets `onLoss` sequence state per chunk. A small pnpm patch retains frames/sequence state in the existing SDK (no new client/event bus). Real filtered create/update/delete, owner/filter exclusion, cancellation, resubscription and single-byte response fragmentation pass; a separate unit test covers sequence gaps. See `patches/README.md`. Automatic reconnect/reconciliation is not implemented.
+- WASM `HttpRequest.user()` is trusted server identity (padded Base64 user ID). Parameterized `base64_url_safe(?)` converts it to the BLOB FK. `new Transaction()` from `trailbase-wasm/db` provides synchronous `query`/`execute`/`commit`/`rollback`; do not await between statements. Two simultaneous expected-version mutations yield one commit and one 409, with an audit row in the same transaction. A second-write CHECK failure rolls back the first write.
+- Build: Vite ES library, strict entry exports and external `wasi:`/`trailbase:` imports, then `jco componentize ... --wit node_modules/trailbase-wasm/wit`. JCO reports its compatibility fallback to componentize-js **0.19.3**, retained in the lockfile; the resulting component is tested on the pinned backend. This does not upgrade TrailBase or global tools. Artifact/source hashes are in P01 evidence.
+
+## Remaining unknowns for P01.T3/P02 onward
+
+- CI binary download URLs/digests, safe dev launcher and product decisions remain P01.T3. The probe runner is not that launcher.
+- Subscription lifecycle on auth refresh/expiry, resnapshot/reconnect after loss, and persistence across app reload remain application work. `onLoss` is not an automatic reliable-delivery guarantee.
 - ACLs on subscribe/filter/expanded data and revocation after membership changes. If a subscription outlives auth expiry, implement a documented revalidation strategy.
-- WASM transaction semantics and authenticated request identity for atomic game transitions/answer grading; do not assume independent queries share a transaction.
+- Apply the proven WASM transaction mechanism to actual game transitions/answer grading with production-equivalent schema and authorization; the current fixture is not game authority.
 - Exact avatar and OAuth callback APIs, auth persistence across browser reload/native restart.
 - Display credential mechanism: prefer built-in anonymous identity if durable token refresh + re-pair is sufficient; otherwise a narrowly scoped device flow. No fake verified email or browser administrator token.
-- JSON/booleans/timestamps and UUID representation over SDK boundaries. Keep generated API types separate from view/domain models.
+- Remaining scalar boolean, file/expanded-relation and generated application type contracts. Keep generated API types separate from view/domain models.
 - Native macOS testing limits: official Tauri WebDriver does not provide equivalent macOS coverage. Browser WebKit is not the actual Tauri WKWebView. Choose a supported native automation method or keep an explicit manual gate.
 
 ## Documentation consulted

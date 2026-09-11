@@ -1,0 +1,28 @@
+# Isolated capability fixture only. Not application/production configuration.
+email {}
+server { application_name: "P01 capability probe" }
+auth { enable_anonymous_signin: true }
+jobs {}
+# Public non-sensitive readiness row under a per-run, unguessable API name.
+record_apis {
+  name: "__READY_API__"
+  table_name: "probe_ready"
+  acl_world: [READ]
+}
+record_apis {
+  name: "__ITEM_API__"
+  table_name: "probe_items"
+  acl_authenticated: [CREATE, READ, UPDATE, DELETE]
+  enable_subscriptions: true
+  autofill_missing_user_id_columns: true
+  create_access_rule: "_REQ_.owner = _USER_.id AND (_REQ_.version IS NULL OR _REQ_.version = 0)"
+  read_access_rule: "_ROW_.owner = _USER_.id"
+  update_access_rule: "_ROW_.owner = _USER_.id AND (_REQ_.owner IS NULL OR _REQ_.owner = _ROW_.owner) AND _REQ_.version IS NULL"
+  delete_access_rule: "_ROW_.owner = _USER_.id"
+}
+record_apis {
+  name: "__AUDIT_API__"
+  table_name: "probe_audit"
+  acl_authenticated: [READ]
+  read_access_rule: "EXISTS(SELECT 1 FROM probe_items WHERE id = _ROW_.item AND owner = _USER_.id)"
+}

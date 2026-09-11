@@ -1,0 +1,2 @@
+patchedDependencies:
+  trailbase@0.14.1: patches/trailbase@0.14.1.patch

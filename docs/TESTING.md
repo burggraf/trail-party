@@ -31,6 +31,14 @@ Reference: [Playwright context isolation](https://playwright.dev/docs/browser-co
 | Native | Actual Tauri windows, platform permissions, TV controls, install/update | macOS/Android device or emulator gates; not replaced by browser assertions |
 | Release/operations | Fresh install, HTTPS/SSE, migrations, backup/restore, upgrade | Isolated staging rehearsal |
 
+## Available P01 backend capability probe
+
+`pnpm test:backend -- capabilities` uses Node's test runner against a real pinned backend, genuine SDK auth/API/SSE, and a compiled WASM handler. `tests/backend/stack.ts` creates only marker-owned `.local/test-runs/capabilities-*` depots and ephemeral loopback ports. It accepts no external URL/depot override, checks health plus a unique per-run schema API before auth mutations, and stops its child/removes its marked depot on teardown. Raw logs (including generated bootstrap credentials) stay in ignored, private `.artifacts/p01-t2/<run-id>/`; never publish them.
+
+`tests/backend/fixture/` is intentionally **only a capability spike**, including a constraint-failure sentinel for atomic rollback. It is not the production/gameplay schema and must not become a full-game backdoor. The two ordinary baseline accounts use the supported admin API because pinned `trail user add` references a removed column; all backend checks then use real ordinary-account auth. Full-game actors must still log in through UI; signup/mail remains separate P02/P04 work.
+
+The integration framing regression splits genuine SSE response bytes, not invented events or mocked endpoints. `tests/unit/trailbase-sse.test.ts` is separately labelled deterministic parser input for the SDK sequence-state regression and is **not** backend acceptance evidence. The pinned SDK patch is required by frozen installation. These probes do not prove automatic reconnect, browser-auth persistence, gameplay, or the ten-run full-game gate.
+
 ## Test infrastructure (P04)
 
 Proposed files:

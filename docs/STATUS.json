@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P01.T2: inspect pinned TrailBase CLI/source and write failing CRUD/auth/filtered SSE/denial plus WASM atomicity probes in an owned throwaway depot. P01.T1/C1 passed; local browser tests use Playwright with installed Chrome per TESTING.",
+  "next_action": "P01.T3: read the selected product/API decisions and reference behavior, mark T3 in_progress, then acceptance-first implement safe dev-launcher readiness/ownership and verify pinned CI backend release artifacts. T2/C2/C3 accepted; no gameplay implementation yet.",
   "phases": [
     {
       "id": "P00",
@@ -91,7 +91,7 @@
         {
           "id": "P01.T2",
           "title": "Prove TrailBase contracts in a throwaway owned depot",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P01.T3",
@@ -111,14 +111,14 @@
         {
           "id": "P01.C2",
           "requirement": "`pnpm test:backend -- capabilities` runs real v0.33.14 and proves CRUD/auth/filtered SSE plus cancellation and a denied request; no mocks.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P01.md"]
         },
         {
           "id": "P01.C3",
           "requirement": "Minimal WASM build/authenticated mutation and atomicity probe pass on the installed binary; build/config/toolchain versions and artifact provenance recorded.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P01.md"]
         },
         {
           "id": "P01.C4",

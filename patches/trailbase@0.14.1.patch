@@ -1,0 +1,22 @@
+diff --git a/dist/index.js b/dist/index.js
+index fac72b42b4f1bcda157ef17d9647476ab44dfb54..3807444c6bb0b415d16cdde7784efc0adb9c3395 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -344,11 +344,15 @@ var RecordApiImpl = class {
+ 		const body = (await this.client.fetch(filters.length > 0 ? `${recordApiBasePath}/${this.name}/subscribe/${id}?${params}` : `${recordApiBasePath}/${this.name}/subscribe/${id}`)).body;
+ 		if (!body) throw Error("Subscription reader is null.");
+ 		const decoder = new TextDecoder();
++		let buffer = "";
++		let prevSeq;
+ 		const transformStream = new TransformStream({
+ 			transform(chunk, controller) {
+-				const messages = decoder.decode(chunk).trimEnd().split("\n\n");
++				buffer += decoder.decode(chunk, { stream: true });
++				// ponytail: rescans buffered frames; use incremental parsing for large, tiny-chunk events.
++				const messages = buffer.split("\n\n");
++				buffer = messages.pop();
+ 				const onLoss = opts?.onLoss;
+-				let prevSeq;
+ 				for (const msg of messages) if (msg.startsWith("data: ")) {
+ 					const ev = parseChangeEvent(msg);
+ 					if (onLoss !== void 0) {

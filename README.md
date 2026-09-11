@@ -2,7 +2,7 @@
 
 A learning project recreating [Trivia Party](https://trivia.azabab.com/) using **TrailBase v0.33.14**, **Svelte**, **shadcn-svelte/Tailwind**, and **Tauri**.
 
-**Current state: shared shell foundation.** The static SvelteKit app has landing/role-entry previews, persistent themes and a browser/native `/display` route. Accounts, pairing, gameplay and question import are **not implemented**. The tested shell is not functional game parity; STATUS/evidence track the remaining work.
+**Current state: shared shell and backend contract probes.** The static SvelteKit app has landing/role-entry previews, persistent themes and a browser/native `/display` route. Accounts, pairing, gameplay and question import are **not implemented**. The tested shell is not functional game parity; STATUS/evidence track the remaining work.
 
 ## Continue development
 
@@ -25,11 +25,14 @@ pnpm dev                         # browser: http://127.0.0.1:5173
 pnpm check && pnpm lint && pnpm test:unit && pnpm build
 pnpm test:scaffold
 pnpm test:shell                  # built static app; installed Chrome, isolated profiles
+pnpm test:backend -- capabilities # real pinned TrailBase, owned throwaway depot
 cargo build --locked --manifest-path src-tauri/Cargo.toml
 pnpm tauri dev --no-watch        # owns a dev server; stop pnpm dev first
 ```
 
 Playwright is the committed browser-test runner; local Chromium checks use `channel: 'chrome'`, not a personal profile or another browser download. Seven isolated contexts can run together; full-game actors will log in separately through the UI. Shell checks currently prove only navigation, theme persistence/isolation and browser-safe rendering. See [the testing contract](docs/TESTING.md). Native window smoke is separate from browser tests; packaged/native gameplay acceptance comes later.
+
+Backend probes exercise real CRUD/auth/ACL/SSE and WASM transaction/CAS behavior using synthetic-only fixtures. They are not application signup, game schema or multi-user gameplay acceptance. The SDK's small pinned SSE fix and its regressions are documented in [patches/README.md](patches/README.md); [STACK](docs/STACK.md) records the measured contracts and CLI limitation.
 
 ## Plan and progress
 

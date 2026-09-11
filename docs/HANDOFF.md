@@ -1,63 +1,55 @@
 # Development handoff
 
-Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner preference: **no worktrees; work on main** (AGENTS).
+Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner preference: **no worktrees; work on main**.
 
 ## Current boundary
 
-**P01.T1 complete; P01.C1 passed. P01 remains in progress.** T2/T3 and C2/C3 are pending; C4 has actual native-shell/cleanup evidence but still awaits the T3 launcher/decisions. No backend schema, auth, pairing, game, question import or multi-user gameplay implementation. The seven-context shell test proves preferences/storage isolation, not authenticated game users or real SSE.
+**P01.T1/T2 complete; P01.C1/C2/C3 passed.** Independent review found no issues. T3/C4 remain pending; P01 is not complete.
 
-Changes include the shared static SvelteKit shell, strict TS6/Svelte5, generated shadcn button/native-select, persisted light/dark/system theme, honest role-entry previews, shared `/display`, exact pnpm/Cargo pins and lockfiles, no native JS calls, minimal Tauri CSP/empty permissions. Native dev window actually rendered `/display`. Scaffold commit **`f1656b2cfec75ded660a2019174d072fc63b34cb`**, built from baseline `63b93b6`, is committed and pushed. The follow-up commit updates only evidence/handoff. No unrelated worker changes.
+Accepted T2 work is based on `44a52e7a1721afe636006711539f1fd1a7695d76` (commit/exact-commit verification follows): real owned-depot CRUD/auth/ACL/serialization/schema/SSE probes, minimal authenticated WASM CAS/rollback fixture, and a small pinned SDK SSE patch. Do not discard/restart it blindly. No application accounts UI, gameplay schema, pairing, questions import or full-game E2E is implemented. Synthetic capability fixtures are not the production schema or an allowed gameplay backdoor.
 
-## Consistent testing tooling — keep this choice
+## Resume / next exact action
 
-Use repository-pinned **Playwright Test 1.63.0** with installed Google Chrome (`channel: 'chrome'`) for local Chromium browser checks. Actual tested version **153.0.8010.37**; log the browser version each run, because installed Chrome can update. Fresh BrowserContext per actor, login through UI once auth exists, no shared personal profiles or copied auth state. Multiple tabs share one context's identity intentionally.
+1. Confirm Git status/branch; read STATUS, P01.T2/T3 and evidence; run `pnpm plan:check`, `pnpm plan:status`, `pnpm test:plan`, `trail --version`.
+2. Confirm the T2 commit/exact-commit verification checkpoint below. Fresh read-only review **`adddf6f6-28b1-4345-a3fc-1e8e18f3ecfa`** returned **OK — ready, no issues found**; output `.artifacts/p01-t2/review.md`. No code changes followed the full gate/review.
+3. **P01.T3**: read its product decisions and relevant reference behavior; add safe dev-launcher readiness/ownership and pin/verify CI backend release artifacts. Mark it in_progress before implementation. The T2 probe runner is not the T3 dev launcher. Owner authorized source Git commit/push, not deployment/release publication.
 
-This owner-approved choice resolves the old bundled-Chromium download blocker. Do not retry that download as the default setup, raise timeouts/retries, or silently switch testing protocols. Agent-browser is presently rejected by its wrapper (0.23.4 versus required >=0.35.0); a DevTools MCP smoke call timed out. They are optional exploration tools, not acceptance replacements. `docs/TESTING.md` and AGENTS contain the durable policy, including CI version pinning and future Firefox/WebKit requirements.
+## Actual verification
 
-## Resume / next exact task: P01.T2
+Full pre-review run **`proc_9d5d`** exited 0: frozen install, type/lint, unit **2**, static build, backend **8**, scaffold **3**, Chrome shell **3**, Cargo fmt/build, plan validation/regression **7**. Zero retries/skips. Logs `.artifacts/p01-t2/pre-review.{stdout,stderr}.log`; exact component hash and red/green history in `docs/evidence/P01.md`. Source code was unchanged after that run; documentation was updated afterward.
 
-```bash
-cd ~/dev/trail-party
-git status --short
-git log -3 --oneline
-pnpm plan:check
-pnpm plan:status
-pnpm test:plan
-trail --version
-trail --help
-trail run --help
-trail components --help
-```
-
-Read P01.T2 and the pinned examples linked in STACK. Mark T2 in_progress **before implementation**. Write failing probes for migrations, CRUD returns/serialization, real auth login/refresh/logout, filtered SSE create/update/delete and cancellation, denial, and minimal authenticated WASM mutation/transaction or CAS behavior. Run only on a marker-owned throwaway loopback depot, never the reference DB or a normal dev/production depot. Capture the exact installed CLI/config/WASM contracts before writing any general client/realtime helper. T3 must then resolve the documented behavioral decisions and safe dev-launcher readiness/ownership.
-
-## Current commands and verification
+The backend tests prove real authorization, filtered insert/update/delete events, cancellation/resubscription, Unicode under single-byte splitting of actual network data, auth refresh/logout, and concurrent WASM CAS plus second-write rollback. The separate parser-only unit test is not real-backend evidence. These are not browser-auth, verification-mail, automatic recovery, full-game or ten-run stability acceptance.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm check && pnpm lint && pnpm test:unit && pnpm build
+pnpm test:backend -- capabilities
 pnpm test:scaffold
 pnpm test:shell
 cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo build --locked --manifest-path src-tauri/Cargo.toml
 pnpm dev                       # browser localhost:5173
-pnpm tauri dev --no-watch       # stop pnpm dev first; native command starts its own
+pnpm tauri dev --no-watch       # stop pnpm dev first; starts its own server
 ```
 
-Last complete **committed** gate on `f1656b2` (`proc_cd55`, 2026-09-11T19:39:15Z log completion): frozen install/type/lint/unit/build/scaffold/shell/Cargo fmt+build/plan checks all exit 0. Unit 1, structural 3, browser 3, plan regression 7; zero retries/skips. Browser checks cover 375px, keyboard/44px host action, theme persistence/system changes, seven isolated contexts, and direct `/auth?role=host` plus `/display` reloads without native globals/page errors. Real static `build/` is served by Vite without Kit SSR middleware.
+## Backend findings to retain
 
-Fresh reviewer accepted T1 with a deep-link coverage note; the extra direct auth check was added and all gates rerun. Logs, review, code manifest and synthetic browser/native screenshots are ignored under `.artifacts/p01/` / `.artifacts/shell/`; sanitized summaries/provenance are in `docs/evidence/P01.md`.
+- Required binary stays **v0.33.14**, source `3f965de7ea516c43a54ca70a495e97f0c6d991ab`, SQLite **3.53.2**. SDK **0.14.1**, WASM SDK **0.6.0**, JCO **1.32.1**. JCO reports compatibility fallback to locked componentize-js **0.19.3**; actual resulting component passes on the pinned backend.
+- `trail user add` is broken against the removed `verified` column. The isolated fixture uses real anonymous auth, CLI admin promotion, refresh and `/api/_admin/user` to provision ordinary baseline actors. Never use this bootstrap in normal browser flows.
+- UUIDs are padded URL-safe Base64; timestamps are seconds. Structured JSON requires `jsonschema_matches` metadata. SDK `FetchError` does not extend Error. See STACK for measured contracts.
+- The unpatched SDK loses partial SSE/UTF-8 frames and per-chunk sequence history. `patches/trailbase@0.14.1.patch` fixes the existing SDK implementation; retain both regressions before removing it. No generic wrapper/event bus was added. Future app code still needs lifecycle/reconciliation.
+- Fixture depots are generated under `.local/test-runs/`; no external depot/URL option. Raw backend logs can contain generated bootstrap credentials and stay ignored/private. Do not publish them.
 
-## Dependency/safety findings to retain
+## Consistent browser/native tooling
 
-shadcn CLI 1.6.1 Vega/neutral generated the controls. Default controls were raised to 44px; internal button URLs are typed and centrally resolved. Generated source/notice is versioned; do not fetch current registry components during builds. The generator added a pnpm minimum-release-age exemption for @lucide/svelte 1.45.0. It was removed; policy-eligible stable 1.44.0 is pinned, the lockfile regenerated, and frozen install passes without bypasses. All direct packages use exact stable versions.
+Use repository-pinned **Playwright 1.63.0**, installed Google Chrome **`channel: 'chrome'`**, fresh BrowserContext per actor, real UI login once implemented. Tested Chrome **153.0.8010.37**; log its actual version each run because it can update. Never reuse personal profiles or share different actors' auth state. Shell tests prove preferences/navigation only. CI browser pinning, Firefox/WebKit and native acceptance remain separate.
 
-Tauri =2.11.5 / tauri-build =2.6.3; Rust 1.91.1 and resolver 3, locked dependencies; Node 26.7.0 / pnpm 11.22.0 / macOS 26.6.2 arm64 tested. No global tool upgrades. Backend remains v0.33.14 / source 3f965de7 / SQLite 3.53.2. Reference HEAD unchanged: `442890dda579c6cb108d2f4851816e4388207627`. No source DB read/import or production action.
+The earlier bundled-Chromium download issue is resolved by the owner's installed-Chrome choice, not extra retries/timeouts. Agent-browser is currently rejected by its wrapper (0.23.4 versus required >=0.35.0); DevTools MCP smoke timed out. Neither is the acceptance runner.
 
-## Processes and artifacts
+T1 native window actually rendered shared `/display`, with owned cleanup. Its screenshot/evidence remain in P01; no new native-window/Android TV proof is claimed for T2. Tauri =2.11.5 / tauri-build =2.6.3; Rust 1.91.1, Node 26.7.0, pnpm 11.22.0, macOS 26.6.2 arm64. No global upgrades or pnpm release-age exemptions.
 
-No running dev/native/backend processes. Native smoke `proc_9669` (app PID 29688, own window 99212, Vite port 5173) was stopped; app exit and port release verified. Shell runs owned preview port 4173 and shut it down. Final committed gates `proc_cd55` exited; port 4173 clear verified. No backend depots created, no unknown listener killed. Native screenshot proves only the shared dev shell, not packaged/native gameplay or Android TV acceptance.
+## Processes, scope and owner gates
 
-## Owner inputs retained for later
+No dev/native/backend processes remain from `proc_9d5d`; backend port **57762** and shell **4173** are clear, `.local/test-runs/` is empty. The read-only review is complete; no active work remains from that run. Never kill an unknown listener or wipe an unmarked directory.
 
-Google OAuth/callbacks, production host/SMTP, native signing/updater keys/Android keystore, license/corpus rights, macOS multi-monitor and Android TV hardware remain their planned later gates. No app/reference/corpus redistribution license invented; upstream generated-component notice is retained separately. Deployment/public release/native signing and live-reference writes still require explicit approval.
+Reference HEAD unchanged: `442890dda579c6cb108d2f4851816e4388207627`. No source DB access/import or production action. Google OAuth/callbacks, production SMTP/host, signing/updater/Android keys, corpus/license rights and native hardware remain later owner gates. The SDK's upstream notice is retained separately; no project/reference/corpus redistribution license was invented.
