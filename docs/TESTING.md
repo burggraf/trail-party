@@ -4,7 +4,19 @@
 
 The app is not complete until a repeatable, unattended browser suite runs a **real two-round game** against TrailBase v0.33.14 with a host, four separately logged-in players on two teams and a separately enrolled display, verifies exact outcomes, and survives disruptions. Opening several pages with one shared login is not multi-user testing.
 
-This document defines future implementation gates. The planning repository has only `plan:check`, `plan:status`, and `test:plan`; application test commands below become real in their specified phases. A missing command is a blocker, never a pass.
+This document defines implementation gates; STATUS/evidence distinguish implemented checks from future commands. A missing command is a blocker, never a pass.
+
+## Standard browser tooling (owner decision, 2026-09-11)
+
+Use the repository-pinned **Playwright Test** runner for committed browser checks. For local Chromium testing use the already-installed Google Chrome via `channel: 'chrome'`, not a downloaded Playwright Chromium binary or a personal Chrome profile. The shell config is `playwright.shell.config.ts`; run `pnpm build && pnpm test:shell`. P04's full harness must retain the same local Chrome choice and actor-isolation rules. Use a `chromium` project name for the Chromium engine, with the explicit Chrome channel recorded in evidence.
+
+- One fresh `browser.newContext()` per actor: host H, A1/A2, B1/B2, display D, outsider X. All contexts remain open together with independent cookies/localStorage/auth. Log each normal actor in through the UI. Multiple tabs in one context intentionally share identity; use them only for two-host-tab tests. Never reuse the same saved auth state across different actors.
+- Playwright can interleave actor actions and coordinate concurrent requests; SSE continues in each open context. Use real state/event barriers and concurrent UI actions for race checks, not arbitrary sleeps. Close contexts and owned server processes in teardown.
+- Record the actual browser version (`browser.version()`) with each run: the installed Chrome may auto-update. The library remains exactly pinned in pnpm-lock.yaml. CI must provision a known Chrome version and record its provenance; local auto-updated Chrome is not a pinned-browser reproducibility claim. Firefox/WebKit remain separate required projects in P10; Chrome does not substitute for them or native Tauri acceptance.
+- Agent-browser and Chrome DevTools MCP are optional exploratory/debug tools, **not replacements for committed acceptance tests**. Inspection here found agent-browser 0.23.4 rejected by its wrapper (requires >=0.35.0; recommends 0.37.0), and a DevTools MCP new-page call timed out. Neither was verified usable. Do not change global tools or silently switch testing protocols to hide failures.
+- Local Chrome 153.0.8010.37 actually launched under Playwright 1.63.0 and passed the shell suite, including seven concurrently open contexts with isolated preferences. This is not yet authenticated multi-user gameplay. The earlier bundled-browser download blocker is resolved by the explicit owner-approved channel choice, not by raising timeouts/retries. See `docs/evidence/P01.md`.
+
+Reference: [Playwright context isolation](https://playwright.dev/docs/browser-contexts), [multiple roles](https://playwright.dev/docs/auth#testing-multiple-roles-together), [Chrome channels](https://playwright.dev/docs/browsers#google-chrome--microsoft-edge).
 
 ## Layers
 

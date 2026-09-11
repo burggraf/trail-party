@@ -1,0 +1,17 @@
+[package]
+name = "trail-party"
+version = "0.0.0"
+description = "Trail Party shared display shell"
+edition = "2021"
+rust-version = "1.91.1"
+resolver = "3"
+
+[lib]
+name = "trail_party_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.11.5", features = [] }

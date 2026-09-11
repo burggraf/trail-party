@@ -12,6 +12,8 @@ Alternatives considered:
 
 This document defines implementation direction, not unverified backend APIs. Resolve pinned-version questions in P01 before building feature layers.
 
+P01.T1 implements only the shared static shell: `/`, honest `/auth` entry placeholders and `/display`, with shadcn controls and mode-watcher theme persistence. No auth authority is derived from the role query parameter. Tauri starts `/display`, bundles the same `build/`, grants no frontend native permissions, and invokes no native JS API; guarded platform modules will be added only when needed. Browser shell checks use Playwright with installed Chrome and a generic static preview server (no Kit SSR runtime); seven-context theme isolation is not backend/auth/SSE proof. The future data/API sections below remain unimplemented.
+
 ## Proposed paths (created by their implementation phases)
 
 ```text

@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P01.T1: resolve Chromium download prerequisite (see HANDOFF); rerun browser red checks before implementing entry/theme/display. Finish shadcn preset and minimal pinned Tauri shell/Cargo.lock; rerun all gates. Work on main; no worktrees.",
+  "next_action": "Begin P01.T2: inspect pinned TrailBase CLI/source and write failing CRUD/auth/filtered SSE/denial plus WASM atomicity probes in an owned throwaway depot. P01.T1/C1 passed; local browser tests use Playwright with installed Chrome per TESTING.",
   "phases": [
     {
       "id": "P00",
@@ -77,18 +77,16 @@
     {
       "id": "P01",
       "title": "Scaffold once; prove the pinned backend",
-      "status": "blocked",
+      "status": "in_progress",
       "depends_on": [
         "P00"
       ],
-      "blockers": [
-        "P01.T1 browser prerequisite: Playwright 1.63.0 Chromium v1243 is absent; pnpm exec playwright install chromium failed downloading Chrome 153.0.8010.12 from cdn.playwright.dev. Restore download access or obtain owner approval for an alternate browser channel before shell acceptance."
-      ],
+      "blockers": [],
       "tasks": [
         {
           "id": "P01.T1",
           "title": "Resolve compatible stable versions and scaffold",
-          "status": "blocked"
+          "status": "complete"
         },
         {
           "id": "P01.T2",
@@ -105,7 +103,7 @@
         {
           "id": "P01.C1",
           "requirement": "`pnpm check && pnpm lint && pnpm test:unit && pnpm build` exits 0; deep links and `/display` render without Tauri globals in a browser.",
-          "status": "blocked",
+          "status": "passed",
           "evidence": [
             "docs/evidence/P01.md"
           ]

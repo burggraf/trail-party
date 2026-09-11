@@ -2,7 +2,7 @@
 
 A learning project recreating [Trivia Party](https://trivia.azabab.com/) using **TrailBase v0.33.14**, **Svelte**, **shadcn-svelte/Tailwind**, and **Tauri**.
 
-**Current state: planning foundation only.** No application is scaffolded, questions are not imported yet, and gameplay tests do not exist yet. The repository contains a detailed implementation plan, acceptance criteria, source-functionality inventory, real multi-user E2E specification, and runnable resume/status checks.
+**Current state: shared shell foundation.** The static SvelteKit app has landing/role-entry previews, persistent themes and a browser/native `/display` route. Accounts, pairing, gameplay and question import are **not implemented**. The tested shell is not functional game parity; STATUS/evidence track the remaining work.
 
 ## Continue development
 
@@ -13,7 +13,23 @@ pnpm plan:status
 pnpm test:plan
 ```
 
-Bootstrap checks require Node >=24 and pnpm 11.22.0; no dependencies or install step are needed. Read [AGENTS.md](AGENTS.md) and [the handoff](docs/HANDOFF.md), then execute the first ready task. Application setup begins in P01.
+Read [AGENTS.md](AGENTS.md) and [the handoff](docs/HANDOFF.md), then execute the first ready task. Work directly on `main` per owner preference; no worktrees.
+
+## Run the shell
+
+Tested toolchain: Node 26.7.0, pnpm 11.22.0, Rust 1.91.1, installed Google Chrome 153.0.8010.37 on macOS arm64. Node 24 is within dependency engine ranges but has not been separately verified. Native development also needs Xcode. No global tool upgrades are automatic.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev                         # browser: http://127.0.0.1:5173
+pnpm check && pnpm lint && pnpm test:unit && pnpm build
+pnpm test:scaffold
+pnpm test:shell                  # built static app; installed Chrome, isolated profiles
+cargo build --locked --manifest-path src-tauri/Cargo.toml
+pnpm tauri dev --no-watch        # owns a dev server; stop pnpm dev first
+```
+
+Playwright is the committed browser-test runner; local Chromium checks use `channel: 'chrome'`, not a personal profile or another browser download. Seven isolated contexts can run together; full-game actors will log in separately through the UI. Shell checks currently prove only navigation, theme persistence/isolation and browser-safe rendering. See [the testing contract](docs/TESTING.md). Native window smoke is separate from browser tests; packaged/native gameplay acceptance comes later.
 
 ## Plan and progress
 

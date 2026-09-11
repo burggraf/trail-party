@@ -52,6 +52,7 @@ For **each task**, in order:
 
 Read `docs/TESTING.md`. Real multi-user web E2E is a core deliverable, not optional polish.
 
+- Use the repository-pinned Playwright Test runner for durable browser checks; local Chromium projects use installed Google Chrome via `channel: 'chrome'` (no personal profile). Record the actual browser version. Agent-browser/DevTools are optional exploration, not acceptance replacements; do not silently switch tools or upgrade global tooling. See `docs/TESTING.md` for CI and cross-browser boundaries.
 - Playwright drives independently authenticated browser contexts against a **real isolated TrailBase process and SQLite database**, with real SSE and real auth.
 - No mocked API/SSE, forged tokens, shared host/player storage state, direct DB writes for gameplay, or JS calls that bypass UI actions in the full-game gate.
 - Fixtures may provision deterministic questions and baseline accounts outside the dedicated signup scenario. Every full-game actor logs in through the UI; registration/verification/reset have their own real local-mail tests.

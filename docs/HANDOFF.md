@@ -1,65 +1,63 @@
 # Development handoff
 
-Updated: 2026-09-11. Repository: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner explicitly requests **no worktrees; work on main** (recorded in AGENTS).
+Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner preference: **no worktrees; work on main** (AGENTS).
 
 ## Current boundary
 
-P00 remains complete. **P01.T1 started, now blocked on the pinned Chromium download. No P01 criterion passed.** Base commit `9c971dc`; this checkpoint commits documentation only. Partial application/tooling files remain in the worktree, intentionally uncommitted; do not reset them. See `docs/evidence/P01.md` for their content manifest and actual results. STATUS is canonical.
+**P01.T1 complete; P01.C1 passed. P01 remains in progress.** T2/T3 and C2/C3 are pending; C4 has actual native-shell/cleanup evidence but still awaits the T3 launcher/decisions. No backend schema, auth, pairing, game, question import or multi-user gameplay implementation. The seven-context shell test proves preferences/storage isolation, not authenticated game users or real SSE.
 
-The placeholder SvelteKit static SPA typechecks/lints/builds; it is not a usable application. No theme, role entry, display route, shadcn components, backend schema/API, question import or gameplay E2E yet. Tauri CLI generated a template only; it has not been pinned/built/launched.
+Changes include the shared static SvelteKit shell, strict TS6/Svelte5, generated shadcn button/native-select, persisted light/dark/system theme, honest role-entry previews, shared `/display`, exact pnpm/Cargo pins and lockfiles, no native JS calls, minimal Tauri CSP/empty permissions. Native dev window actually rendered `/display`. Source baseline `63b93b6`; the scaffold commit and post-commit verification identity are recorded in `docs/evidence/P01.md`/Git log. No unrelated worker changes.
 
-## Next exact action / blocker
+## Consistent testing tooling — keep this choice
 
-Playwright 1.63.0 needs Chromium build 1243 (Chrome for Testing 153.0.8010.12 mac-arm64). It is absent. `pnpm exec playwright install chromium` exited 1 downloading from `cdn.playwright.dev` with default timeout errors. No timeout/retry settings changed, no alternate browser substituted.
+Use repository-pinned **Playwright Test 1.63.0** with installed Google Chrome (`channel: 'chrome'`) for local Chromium browser checks. Actual tested version **153.0.8010.37**; log the browser version each run, because installed Chrome can update. Fresh BrowserContext per actor, login through UI once auth exists, no shared personal profiles or copied auth state. Multiple tabs share one context's identity intentionally.
 
-**Owner decision:** restore access to the official artifact, or explicitly approve an identified installed browser channel for shell testing. Do not label missing browser or no tests as a skip/pass.
+This owner-approved choice resolves the old bundled-Chromium download blocker. Do not retry that download as the default setup, raise timeouts/retries, or silently switch testing protocols. Agent-browser is presently rejected by its wrapper (0.23.4 versus required >=0.35.0); a DevTools MCP smoke call timed out. They are optional exploration tools, not acceptance replacements. `docs/TESTING.md` and AGENTS contain the durable policy, including CI version pinning and future Firefox/WebKit requirements.
 
-After access is restored:
+## Resume / next exact task: P01.T2
 
 ```bash
 cd ~/dev/trail-party
+git status --short
+git log -3 --oneline
 pnpm plan:check
 pnpm plan:status
 pnpm test:plan
 trail --version
-pnpm exec playwright install chromium
-pnpm build && pnpm test:shell
+trail --help
+trail run --help
+trail components --help
 ```
 
-The shell suite should then reach **behavioral red** (missing landing/theme/display); its first run only proved a missing browser. Clear the blocker/set P01/T1 in_progress in STATUS, implement the measured shell checks, and rerun gates. Do not advance to T2 yet.
+Read P01.T2 and the pinned examples linked in STACK. Mark T2 in_progress **before implementation**. Write failing probes for migrations, CRUD returns/serialization, real auth login/refresh/logout, filtered SSE create/update/delete and cancellation, denial, and minimal authenticated WASM mutation/transaction or CAS behavior. Run only on a marker-owned throwaway loopback depot, never the reference DB or a normal dev/production depot. Capture the exact installed CLI/config/WASM contracts before writing any general client/realtime helper. T3 must then resolve the documented behavioral decisions and safe dev-launcher readiness/ownership.
 
-Continue T1 with:
-1. Finish shadcn-svelte 1.6.1 init: it now needs an explicit preset (see `pnpm exec shadcn-svelte init --help`); use the simplest neutral preset, generate/review button, pin added deps. `$lib` alias is now generated after creating `src/lib` and running sync.
-2. Implement F01 role navigation (honest auth-not-yet-available destination), light/dark/system persistence, accessible controls, shared `/display`; add a meaningful unit test before the behavior.
-3. Trim/review generated `src-tauri`, replace template metadata, pin Tauri 2.11.5 and compatible tauri-build, commit Cargo.lock when actually scaffolded. Set native URL `/display`, minimal capabilities/CSP, no unused logging/serde plugins or extra platform assets. Build and prove actual macOS shell separately from browser smoke.
-4. Run `pnpm check && pnpm lint && pnpm test:unit && pnpm build`, `pnpm test:scaffold`, `pnpm test:shell`; update evidence/status and commit the cohesive tested scaffold. Preserve pending C2/C3/T2/T3 scope.
+## Current commands and verification
 
-## Partial changed files
+```bash
+pnpm install --frozen-lockfile
+pnpm check && pnpm lint && pnpm test:unit && pnpm build
+pnpm test:scaffold
+pnpm test:shell
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo build --locked --manifest-path src-tauri/Cargo.toml
+pnpm dev                       # browser localhost:5173
+pnpm tauri dev --no-watch       # stop pnpm dev first; native command starts its own
+```
 
-- `package.json`, `pnpm-lock.yaml`: exact compatible frontend/testing/lint pins and commands.
-- `svelte.config.js`, `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `vitest.config.ts`: minimal static SPA/tool configs.
-- `src/app.html`, `src/app.css`, `src/routes/+layout.ts`, `src/routes/+page.svelte`: SSR disabled; placeholder only.
-- `scripts/scaffold.test.mjs`, `playwright.shell.config.ts`, `tests/shell/shell.spec.ts`: structural and browser acceptance checks, still red.
-- `src-tauri/`: CLI template with placeholder identifier/version, floating crates, default permissions/icons. **Unreviewed template, not acceptance-ready.** No Cargo.lock yet.
-- Documentation checkpoint: AGENTS, STATUS, STACK, this handoff, evidence/P01.
+Last complete pre-commit gate (`proc_6b84`, 2026-09-11T19:35:27Z log completion): frozen install/type/lint/unit/build/scaffold/shell/Cargo fmt+build/plan checks all exit 0. Unit 1, structural 3, browser 3, plan regression 7; zero retries/skips. Browser checks cover 375px, keyboard/44px host action, theme persistence/system changes, seven isolated contexts, and direct `/auth?role=host` plus `/display` reloads without native globals/page errors. Real static `build/` is served by Vite without Kit SSR middleware.
 
-## Checks and diagnostics
+Fresh reviewer accepted T1 with a deep-link coverage note; the extra direct auth check was added and all gates rerun. Logs, review, code manifest and synthetic browser/native screenshots are ignored under `.artifacts/p01/` / `.artifacts/shell/`; sanitized summaries/provenance are in `docs/evidence/P01.md`.
 
-- Plan check/status: exit 0; plan regression: 7 passed, zero skipped.
-- Initial structural red: missing command/config, exit 1.
-- Final `pnpm check`, `pnpm lint`, `pnpm build`: exit 0 on placeholder code.
-- `pnpm test:unit`: exit 1 (no unit tests yet).
-- `pnpm test:scaffold`: exit 1 (native default route missing).
-- `pnpm test:shell`: exit 1 (browser launch unavailable, zero retries/skips).
-- Browser install: exit 1; ignored local logs and traces under `.artifacts/p01/` and `.artifacts/shell/`.
-- shadcn first init failed for absent generated `$lib`; creating `src/lib` and sync fixed that prerequisite. Second invocation reached a preset prompt and was deliberately stopped on browser blocker.
+## Dependency/safety findings to retain
 
-Reference commit remains `442890dda579c6cb108d2f4851816e4388207627`, no drift. Required backend verified unchanged: v0.33.14 / source 3f965de7 / SQLite 3.53.2. Node 26.7.0, pnpm 11.22.0, Rust 1.91.1, macOS 26.6.2. No global tool upgrade, production action, source DB access or data import.
+shadcn CLI 1.6.1 Vega/neutral generated the controls. Default controls were raised to 44px; internal button URLs are typed and centrally resolved. Generated source/notice is versioned; do not fetch current registry components during builds. The generator added a pnpm minimum-release-age exemption for @lucide/svelte 1.45.0. It was removed; policy-eligible stable 1.44.0 is pinned, the lockfile regenerated, and frozen install passes without bypasses. All direct packages use exact stable versions.
 
-## Processes and ownership
+Tauri =2.11.5 / tauri-build =2.6.3; Rust 1.91.1 and resolver 3, locked dependencies; Node 26.7.0 / pnpm 11.22.0 / macOS 26.6.2 arm64 tested. No global tool upgrades. Backend remains v0.33.14 / source 3f965de7 / SQLite 3.53.2. Reference HEAD unchanged: `442890dda579c6cb108d2f4851816e4388207627`. No source DB read/import or production action.
 
-All managed processes stopped/exited: install `proc_168c`, shell red `proc_b319`, browser install `proc_0f6a`, shadcn init `proc_7663` / `proc_d19f`, checkpoint gates `proc_2c5f`. Playwright-owned preview used loopback port 4173 and shut down. No running dev/native/backend processes or owned TrailBase depots. No unknown listener was killed.
+## Processes and artifacts
+
+No running dev/native/backend processes. Native smoke `proc_9669` (app PID 29688, own window 99212, Vite port 5173) was stopped; app exit and port release verified. Shell runs owned preview port 4173 and shut it down. Final gates `proc_6b84` exited. No backend depots created, no unknown listener killed. Native screenshot proves only the shared dev shell, not packaged/native gameplay or Android TV acceptance.
 
 ## Owner inputs retained for later
 
-Google OAuth credentials/callbacks and production SMTP/host configuration remain P12 gates. Native signing/updater keys/Android keystore and public publication require approval. Actual macOS multi-monitor and Android TV hardware remain P11 gates. Reference license and question/asset redistribution rights are unresolved: do not invent a license or publish the corpus. Live reference writes require session-specific approval; local isolated synthetic testing remains authorized.
+Google OAuth/callbacks, production host/SMTP, native signing/updater keys/Android keystore, license/corpus rights, macOS multi-monitor and Android TV hardware remain their planned later gates. No app/reference/corpus redistribution license invented; upstream generated-component notice is retained separately. Deployment/public release/native signing and live-reference writes still require explicit approval.
