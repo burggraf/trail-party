@@ -14,12 +14,12 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Finish P00.T3: verify bootstrap, commit/push, record remote evidence. Then start P01.T1.",
+  "next_action": "Start P01.T1: read STACK and P01; verify compatible stable frontend/toolchain versions; mark P01/T1 in_progress; scaffold shared SvelteKit static SPA and Tauri with failing shell checks first.",
   "phases": [
     {
       "id": "P00",
       "title": "Planning foundation",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [],
       "blockers": [],
       "tasks": [
@@ -36,33 +36,41 @@
         {
           "id": "P00.T3",
           "title": "Verify restart tooling and publish the foundation",
-          "status": "in_progress"
+          "status": "complete"
         }
       ],
       "criteria": [
         {
           "id": "P00.C1",
           "requirement": "Public repo URL/visibility and owner confirmed; local checkout has origin and published main branch.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": [
+            "docs/evidence/P00.md"
+          ]
         },
         {
           "id": "P00.C2",
           "requirement": "Plan, F01\u2013F30 inventory, full-game multi-user spec, version findings and AGENTS contract exist with no claimed application implementation.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": [
+            "docs/evidence/P00.md"
+          ]
         },
         {
           "id": "P00.C3",
           "requirement": "`pnpm plan:check`, `pnpm plan:status`, `pnpm test:plan` pass; the next task is unambiguous and all implementation phases remain pending.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": [
+            "docs/evidence/P00.md"
+          ]
         },
         {
           "id": "P00.C4",
           "requirement": "Staged/published files contain no private data, imported corpus, credentials, DBs or unrelated reference changes.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": [
+            "docs/evidence/P00.md"
+          ]
         }
       ]
     },

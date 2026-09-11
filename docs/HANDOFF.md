@@ -4,7 +4,7 @@ Updated: 2026-09-11. Repository: https://github.com/burggraf/trail-party. Workin
 
 ## Current boundary
 
-Planning foundation prepared; P00 publication/verification is being finalized. **No Svelte/Tauri application, TrailBase schema, question import, or game E2E implementation yet.** `package.json` exposes only plan checks. Status: `docs/STATUS.json`.
+P00 planning foundation is complete and published. Foundation commit: `1beaa90b0f216ae5870de32f2bd9c9e1b1847e22`; the subsequent completion checkpoint updates status/handoff/evidence only. Use `git log` for the latest checkpoint identity. **No Svelte/Tauri application, TrailBase schema, question import, or game E2E implementation yet.** `package.json` exposes only plan checks. Status: `docs/STATUS.json`.
 
 ## Resume commands
 
@@ -18,7 +18,7 @@ pnpm test:plan
 trail --version
 ```
 
-After P00 closes, next task is **P01.T1**: read STACK and P01, verify stable compatible frontend/toolchain versions, mark P01/T1 in_progress, and scaffold the shared static SvelteKit/Tauri foundation with failing shell checks first. The backend stays v0.33.14 even if frontend stable releases advance.
+Next task is **P01.T1**: read STACK and P01, verify stable compatible frontend/toolchain versions, mark P01/T1 in_progress, and scaffold the shared static SvelteKit/Tauri foundation with failing shell checks first. The backend stays v0.33.14 even if frontend stable releases advance.
 
 ## Decisions already confirmed by owner
 
