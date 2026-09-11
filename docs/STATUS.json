@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Start P01.T1: read STACK and P01; verify compatible stable frontend/toolchain versions; mark P01/T1 in_progress; scaffold shared SvelteKit static SPA and Tauri with failing shell checks first.",
+  "next_action": "P01.T1: resolve Chromium download prerequisite (see HANDOFF); rerun browser red checks before implementing entry/theme/display. Finish shadcn preset and minimal pinned Tauri shell/Cargo.lock; rerun all gates. Work on main; no worktrees.",
   "phases": [
     {
       "id": "P00",
@@ -77,16 +77,18 @@
     {
       "id": "P01",
       "title": "Scaffold once; prove the pinned backend",
-      "status": "pending",
+      "status": "blocked",
       "depends_on": [
         "P00"
       ],
-      "blockers": [],
+      "blockers": [
+        "P01.T1 browser prerequisite: Playwright 1.63.0 Chromium v1243 is absent; pnpm exec playwright install chromium failed downloading Chrome 153.0.8010.12 from cdn.playwright.dev. Restore download access or obtain owner approval for an alternate browser channel before shell acceptance."
+      ],
       "tasks": [
         {
           "id": "P01.T1",
           "title": "Resolve compatible stable versions and scaffold",
-          "status": "pending"
+          "status": "blocked"
         },
         {
           "id": "P01.T2",
@@ -103,8 +105,10 @@
         {
           "id": "P01.C1",
           "requirement": "`pnpm check && pnpm lint && pnpm test:unit && pnpm build` exits 0; deep links and `/display` render without Tauri globals in a browser.",
-          "status": "pending",
-          "evidence": []
+          "status": "blocked",
+          "evidence": [
+            "docs/evidence/P01.md"
+          ]
         },
         {
           "id": "P01.C2",

@@ -23,6 +23,16 @@ Verified 2026-09-11. This is a planning snapshot, not an installed frontend or a
 | TypeScript | Choose supported stable **6.x**, candidate `6.0.3` | Registry newest is 7.0.2, but Kit 2.70.3 declares ^5.3.3 or ^6.0.0; do not force unsupported TS7 |
 | Runtime/tooling | Node 24 LTS candidate; pnpm 11.22.0 available | Host currently Node 26.7.0 and Rust 1.91.1; P01 must establish supported Node/Rust versions, not assume current host meets all engines/MSRV |
 
+## P01.T1 resolution checkpoint (2026-09-11)
+
+Registry versions above were rechecked and still match. Installed exact frontend pins and pnpm lockfile are present in the **partial uncommitted scaffold**; this is not a completed compatibility gate. Additional pins: Vitest 5.0.0, svelte-check 4.7.6, ESLint 10.10.0, @eslint/js 10.0.1, eslint-plugin-svelte 3.23.0, typescript-eslint 8.70.0, globals 17.12.0, @types/node 22.20.2, mode-watcher 1.1.0. shadcn initialization has not yet selected/generated a preset or components.
+
+`pnpm view` confirms Kit accepts TS ^6.0.0 and Vite ^8; plugin-svelte requires Svelte >=5.46.4/Vite 8; svelte-check accepts TS6; typescript-eslint accepts TS <6.1 and ESLint 10; eslint-plugin-svelte accepts ESLint 10/Svelte 5. No peer conflicts reported on install. Host Node 26.7.0 satisfies all selected engines, including Vitest (^22.12 / ^24 / >=26) and plugin-svelte (^20.19 / ^22.12 / >=24). Node 24 LTS remains a future clean-environment check, not a proven runtime in this checkpoint.
+
+`gh api repos/tauri-apps/tauri/releases/latest` still reports `tauri-v2.11.5`; that release's root Cargo.toml declares Rust 1.77.2/edition 2021. Installed Rust 1.91.1 exceeds that declared MSRV. The CLI-generated native template still needs exact crate pins, Cargo.lock and a real build; no native compatibility claim yet.
+
+**Blocker:** pinned Playwright Chromium v1243 is absent and the official download timed out. Browser shell checks never launched; see `docs/evidence/P01.md`. Type/lint/static build pass only for the placeholder shell; unit/scaffold gates remain red. Do not upgrade/downgrade dependencies or substitute a browser to conceal this.
+
 ## Verified pinned-backend facts
 
 Inspected the following files at the exact TrailBase commit, not reconstructed API examples:

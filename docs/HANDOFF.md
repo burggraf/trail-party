@@ -1,59 +1,65 @@
 # Development handoff
 
-Updated: 2026-09-11. Repository: https://github.com/burggraf/trail-party. Working directory: `~/dev/trail-party`. Branch: `main`.
+Updated: 2026-09-11. Repository: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner explicitly requests **no worktrees; work on main** (recorded in AGENTS).
 
 ## Current boundary
 
-P00 planning foundation is complete and published. Foundation commit: `1beaa90b0f216ae5870de32f2bd9c9e1b1847e22`; the subsequent completion checkpoint updates status/handoff/evidence only. Use `git log` for the latest checkpoint identity. **No Svelte/Tauri application, TrailBase schema, question import, or game E2E implementation yet.** `package.json` exposes only plan checks. Status: `docs/STATUS.json`.
+P00 remains complete. **P01.T1 started, now blocked on the pinned Chromium download. No P01 criterion passed.** Base commit `9c971dc`; this checkpoint commits documentation only. Partial application/tooling files remain in the worktree, intentionally uncommitted; do not reset them. See `docs/evidence/P01.md` for their content manifest and actual results. STATUS is canonical.
 
-## Resume commands
+The placeholder SvelteKit static SPA typechecks/lints/builds; it is not a usable application. No theme, role entry, display route, shadcn components, backend schema/API, question import or gameplay E2E yet. Tauri CLI generated a template only; it has not been pinned/built/launched.
+
+## Next exact action / blocker
+
+Playwright 1.63.0 needs Chromium build 1243 (Chrome for Testing 153.0.8010.12 mac-arm64). It is absent. `pnpm exec playwright install chromium` exited 1 downloading from `cdn.playwright.dev` with default timeout errors. No timeout/retry settings changed, no alternate browser substituted.
+
+**Owner decision:** restore access to the official artifact, or explicitly approve an identified installed browser channel for shell testing. Do not label missing browser or no tests as a skip/pass.
+
+After access is restored:
 
 ```bash
 cd ~/dev/trail-party
-git status --short
-git log -3 --oneline
 pnpm plan:check
 pnpm plan:status
 pnpm test:plan
 trail --version
+pnpm exec playwright install chromium
+pnpm build && pnpm test:shell
 ```
 
-Next task is **P01.T1**: read STACK and P01, verify stable compatible frontend/toolchain versions, mark P01/T1 in_progress, and scaffold the shared static SvelteKit/Tauri foundation with failing shell checks first. The backend stays v0.33.14 even if frontend stable releases advance.
+The shell suite should then reach **behavioral red** (missing landing/theme/display); its first run only proved a missing browser. Clear the blocker/set P01/T1 in_progress in STATUS, implement the measured shell checks, and rerun gates. Do not advance to T2 yet.
 
-## Decisions already confirmed by owner
+Continue T1 with:
+1. Finish shadcn-svelte 1.6.1 init: it now needs an explicit preset (see `pnpm exec shadcn-svelte init --help`); use the simplest neutral preset, generate/review button, pin added deps. `$lib` alias is now generated after creating `src/lib` and running sync.
+2. Implement F01 role navigation (honest auth-not-yet-available destination), light/dark/system persistence, accessible controls, shared `/display`; add a meaningful unit test before the behavior.
+3. Trim/review generated `src-tauri`, replace template metadata, pin Tauri 2.11.5 and compatible tauri-build, commit Cargo.lock when actually scaffolded. Set native URL `/display`, minimal capabilities/CSP, no unused logging/serde plugins or extra platform assets. Build and prove actual macOS shell separately from browser smoke.
+4. Run `pnpm check && pnpm lint && pnpm test:unit && pnpm build`, `pnpm test:scaffold`, `pnpm test:shell`; update evidence/status and commit the cohesive tested scaffold. Preserve pending C2/C3/T2/T3 scope.
 
-- Browser host/player/controller; native macOS and Android TV displays; shared browser-testable display.
-- Questions-only import; fresh accounts, games and device identities.
-- Functional/responsive parity using shadcn-svelte, not pixel-perfect React duplication.
-- Google OAuth retained; owner provides credentials later.
-- Real multi-user browser E2E is mandatory, not an optional last-phase activity.
+## Partial changed files
 
-## Verified findings
+- `package.json`, `pnpm-lock.yaml`: exact compatible frontend/testing/lint pins and commands.
+- `svelte.config.js`, `vite.config.ts`, `tsconfig.json`, `eslint.config.js`, `vitest.config.ts`: minimal static SPA/tool configs.
+- `src/app.html`, `src/app.css`, `src/routes/+layout.ts`, `src/routes/+page.svelte`: SSR disabled; placeholder only.
+- `scripts/scaffold.test.mjs`, `playwright.shell.config.ts`, `tests/shell/shell.spec.ts`: structural and browser acceptance checks, still red.
+- `src-tauri/`: CLI template with placeholder identifier/version, floating crates, default permissions/icons. **Unreviewed template, not acceptance-ready.** No Cargo.lock yet.
+- Documentation checkpoint: AGENTS, STATUS, STACK, this handoff, evidence/P01.
 
-- Local `trail --version`: v0.33.14-0-g3f965de7 (2026-09-10), SQLite 3.53.2.
-- Reference commit: `442890dda579c6cb108d2f4851816e4388207627`.
-- Existing source DB: `~/dev/trivia-party/pb_data/data.db`; requested `~/trivia-party/pb_data/data.db` does not exist here. Count at inspection: 591,183 questions. Count must be read anew for actual snapshot/import.
-- Actual matching SDK: `trailbase@0.14.1`; create returns an ID, update returns void, subscriptions are streams, schema/config include explicit subscription controls.
-- Email sign-up verification and device enrollment need the deliberate decisions documented in P01. Do not repeat the reference's fake-email device-account pattern without examining TrailBase semantics.
-- Frontend stable snapshot in STACK includes Svelte 5.57.0, shadcn-svelte 1.6.1, Tailwind 4.3.3 and Tauri Rust 2.11.5. TS7 is registry-latest but outside recorded Kit peers; use a supported TS6 version unless compatibility changes.
+## Checks and diagnostics
 
-## Inputs needed later (not blockers to beginning P01)
+- Plan check/status: exit 0; plan regression: 7 passed, zero skipped.
+- Initial structural red: missing command/config, exit 1.
+- Final `pnpm check`, `pnpm lint`, `pnpm build`: exit 0 on placeholder code.
+- `pnpm test:unit`: exit 1 (no unit tests yet).
+- `pnpm test:scaffold`: exit 1 (native default route missing).
+- `pnpm test:shell`: exit 1 (browser launch unavailable, zero retries/skips).
+- Browser install: exit 1; ignored local logs and traces under `.artifacts/p01/` and `.artifacts/shell/`.
+- shadcn first init failed for absent generated `$lib`; creating `src/lib` and sync fixed that prerequisite. Second invocation reached a preset prompt and was deliberately stopped on browser blocker.
 
-| Input | Needed by | Default / effect if absent |
-|---|---|---|
-| Google OAuth client credentials and approved callback domains | P12 real-provider acceptance | Local email flows and controlled provider tests proceed; real Google gate blocked |
-| Production/staging domain/host and SMTP settings | P12 deployment | Local isolated development/test stack proceeds; no production deployment assumed |
-| Apple signing/notarization credentials and updater release keys; Android release keystore | P12 public distribution | Local debug/package tests proceed; signing/publication gates stay blocked |
-| macOS second monitor, Android TV emulator/device | P11 native acceptance | Explicit hardware checks cannot be marked passed until available |
-| Source code license choice; rights to redistribute question corpus/assets | P12/public content | No license invented, no original corpus/assets committed |
-| Approval for any live-reference write/test with real users | Whenever desired | Source inspection or read-only live exploration only; local synthetic games preferred |
+Reference commit remains `442890dda579c6cb108d2f4851816e4388207627`, no drift. Required backend verified unchanged: v0.33.14 / source 3f965de7 / SQLite 3.53.2. Node 26.7.0, pnpm 11.22.0, Rust 1.91.1, macOS 26.6.2. No global tool upgrade, production action, source DB access or data import.
 
-## Verification and artifacts
+## Processes and ownership
 
-See `docs/evidence/P00.md` for actual bootstrap checks and publication evidence. Plan tests use only Node built-ins; no framework install is required. pnpm may create its normal ignored node_modules metadata and a dependency-free lockfile.
+All managed processes stopped/exited: install `proc_168c`, shell red `proc_b319`, browser install `proc_0f6a`, shadcn init `proc_7663` / `proc_d19f`, checkpoint gates `proc_2c5f`. Playwright-owned preview used loopback port 4173 and shut down. No running dev/native/backend processes or owned TrailBase depots. No unknown listener was killed.
 
-No dev servers or test backend processes were started by the planning work. No production game/player/display actions were performed. No source DB was modified or imported.
+## Owner inputs retained for later
 
-## Future handoff updates must include
-
-Exact active task and tested Git commit; partial changed files; last failing/passing commands; criterion evidence; blocker/owner request; next concrete step; running process IDs/ports/owned depot paths and cleanup responsibility. Never depend on this chat's context.
+Google OAuth credentials/callbacks and production SMTP/host configuration remain P12 gates. Native signing/updater keys/Android keystore and public publication require approval. Actual macOS multi-monitor and Android TV hardware remain P11 gates. Reference license and question/asset redistribution rights are unresolved: do not invent a license or publish the corpus. Live reference writes require session-specific approval; local isolated synthetic testing remains authorized.

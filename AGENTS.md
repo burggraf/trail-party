@@ -76,6 +76,8 @@ Read `docs/TESTING.md`. Real multi-user web E2E is a core deliverable, not optio
 
 `docs/STATUS.json` is the sole machine-readable task/criterion status source. The plan defines scope; evidence proves results; `docs/HANDOFF.md` records the most recent handoff. Do not maintain conflicting checkbox lists.
 
-Use stable phase/task/criterion IDs. Keep one writer per working tree. If delegating, assign non-overlapping scope or separate worktrees; consume review results before declaring acceptance. Do not commit another worker's unrelated changes.
+Owner workspace preference: work directly on `main` in the current checkout; do not create worktrees unless the owner explicitly changes this preference.
+
+Use stable phase/task/criterion IDs. Keep one writer per working tree. If delegating, use read-only parallel reviewers or sequential writers in this checkout; consume review results before declaring acceptance. Do not commit another worker's unrelated changes.
 
 End every development session with: completed work, actual checks run, current blockers, next command/task, and any running process IDs/ports. A fresh session must be able to continue without chat history.
