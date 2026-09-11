@@ -6,7 +6,7 @@ Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~
 
 **P01.T1/T2 complete; P01.C1/C2/C3 passed.** Independent review found no issues. T3/C4 remain pending; P01 is not complete.
 
-Accepted T2 work is based on `44a52e7a1721afe636006711539f1fd1a7695d76` (commit/exact-commit verification follows): real owned-depot CRUD/auth/ACL/serialization/schema/SSE probes, minimal authenticated WASM CAS/rollback fixture, and a small pinned SDK SSE patch. Do not discard/restart it blindly. No application accounts UI, gameplay schema, pairing, questions import or full-game E2E is implemented. Synthetic capability fixtures are not the production schema or an allowed gameplay backdoor.
+Accepted T2 implementation commit **`516755d1b4a72c92a847e33ac7d41a0702309921`**, based on `44a52e7a1721afe636006711539f1fd1a7695d76`: real owned-depot CRUD/auth/ACL/serialization/schema/SSE probes, minimal authenticated WASM CAS/rollback fixture, and a small pinned SDK SSE patch. Do not discard/restart it blindly. No application accounts UI, gameplay schema, pairing, questions import or full-game E2E is implemented. Synthetic capability fixtures are not the production schema or an allowed gameplay backdoor.
 
 ## Resume / next exact action
 
@@ -16,7 +16,7 @@ Accepted T2 work is based on `44a52e7a1721afe636006711539f1fd1a7695d76` (commit/
 
 ## Actual verification
 
-Full pre-review run **`proc_9d5d`** exited 0: frozen install, type/lint, unit **2**, static build, backend **8**, scaffold **3**, Chrome shell **3**, Cargo fmt/build, plan validation/regression **7**. Zero retries/skips. Logs `.artifacts/p01-t2/pre-review.{stdout,stderr}.log`; exact component hash and red/green history in `docs/evidence/P01.md`. Source code was unchanged after that run; documentation was updated afterward.
+Exact-commit run **`proc_e63a`** on **`516755d1b4a72c92a847e33ac7d41a0702309921`**, completed **2026-09-11T20:27:04Z**, exited 0: frozen install, type/lint, unit **2**, static build, backend **8**, scaffold **3**, Chrome shell **3**, Cargo fmt/build, plan validation/status/regression **7**, and clean `git diff --exit-code`. Zero retries/skips. Logs `.artifacts/p01-t2/committed.{stdout,stderr}.log`; exact component hash and red/green history in `docs/evidence/P01.md`. This follow-up updates only evidence/handoff; application/test code remains that verified commit.
 
 The backend tests prove real authorization, filtered insert/update/delete events, cancellation/resubscription, Unicode under single-byte splitting of actual network data, auth refresh/logout, and concurrent WASM CAS plus second-write rollback. The separate parser-only unit test is not real-backend evidence. These are not browser-auth, verification-mail, automatic recovery, full-game or ten-run stability acceptance.
 
@@ -50,6 +50,6 @@ T1 native window actually rendered shared `/display`, with owned cleanup. Its sc
 
 ## Processes, scope and owner gates
 
-No dev/native/backend processes remain from `proc_9d5d`; backend port **57762** and shell **4173** are clear, `.local/test-runs/` is empty. The read-only review is complete; no active work remains from that run. Never kill an unknown listener or wipe an unmarked directory.
+No dev/native/backend processes remain from `proc_e63a`; backend port **58214** and shell **4173** are clear, `.local/test-runs/` is empty. The read-only review is complete; no active work remains from that run. Never kill an unknown listener or wipe an unmarked directory.
 
 Reference HEAD unchanged: `442890dda579c6cb108d2f4851816e4388207627`. No source DB access/import or production action. Google OAuth/callbacks, production SMTP/host, signing/updater/Android keys, corpus/license rights and native hardware remain later owner gates. The SDK's upstream notice is retained separately; no project/reference/corpus redistribution license was invented.
