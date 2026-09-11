@@ -1,0 +1,695 @@
+{
+  "version": 1,
+  "project": "trail-party",
+  "updated_at": "2026-09-11",
+  "plan": "docs/plans/2026-09-11-trail-party.md",
+  "reference": {
+    "source_path": "~/dev/trivia-party",
+    "source_commit": "442890dda579c6cb108d2f4851816e4388207627",
+    "question_db": "~/dev/trivia-party/pb_data/data.db",
+    "live_url": "https://trivia.azabab.com/"
+  },
+  "backend": {
+    "version": "0.33.14",
+    "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
+    "sqlite": "3.53.2"
+  },
+  "next_action": "Finish P00.T3: verify bootstrap, commit/push, record remote evidence. Then start P01.T1.",
+  "phases": [
+    {
+      "id": "P00",
+      "title": "Planning foundation",
+      "status": "in_progress",
+      "depends_on": [],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P00.T1",
+          "title": "Confirm boundaries and create repository",
+          "status": "complete"
+        },
+        {
+          "id": "P00.T2",
+          "title": "Write specification and durable governance",
+          "status": "complete"
+        },
+        {
+          "id": "P00.T3",
+          "title": "Verify restart tooling and publish the foundation",
+          "status": "in_progress"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P00.C1",
+          "requirement": "Public repo URL/visibility and owner confirmed; local checkout has origin and published main branch.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P00.C2",
+          "requirement": "Plan, F01\u2013F30 inventory, full-game multi-user spec, version findings and AGENTS contract exist with no claimed application implementation.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P00.C3",
+          "requirement": "`pnpm plan:check`, `pnpm plan:status`, `pnpm test:plan` pass; the next task is unambiguous and all implementation phases remain pending.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P00.C4",
+          "requirement": "Staged/published files contain no private data, imported corpus, credentials, DBs or unrelated reference changes.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P01",
+      "title": "Scaffold once; prove the pinned backend",
+      "status": "pending",
+      "depends_on": [
+        "P00"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P01.T1",
+          "title": "Resolve compatible stable versions and scaffold",
+          "status": "pending"
+        },
+        {
+          "id": "P01.T2",
+          "title": "Prove TrailBase contracts in a throwaway owned depot",
+          "status": "pending"
+        },
+        {
+          "id": "P01.T3",
+          "title": "Resolve behavioral/API decisions and bootstrap safety",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P01.C1",
+          "requirement": "`pnpm check && pnpm lint && pnpm test:unit && pnpm build` exits 0; deep links and `/display` render without Tauri globals in a browser.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P01.C2",
+          "requirement": "`pnpm test:backend -- capabilities` runs real v0.33.14 and proves CRUD/auth/filtered SSE plus cancellation and a denied request; no mocks.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P01.C3",
+          "requirement": "Minimal WASM build/authenticated mutation and atomicity probe pass on the installed binary; build/config/toolchain versions and artifact provenance recorded.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P01.C4",
+          "requirement": "Native dev shell loads the same static app on macOS; launcher owns/cleans its processes; P01 decisions are explicit with no unresolved architectural blocker.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P02",
+      "title": "Data model, real authentication and authorization",
+      "status": "pending",
+      "depends_on": [
+        "P01"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P02.T1",
+          "title": "Define schema and safe API projections",
+          "status": "pending"
+        },
+        {
+          "id": "P02.T2",
+          "title": "Implement auth/profile flows",
+          "status": "pending"
+        },
+        {
+          "id": "P02.T3",
+          "title": "Enforce and attack the access matrix",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P02.C1",
+          "requirement": "`pnpm test:backend -- schema` proves repeatable fresh migrations, constraints/indexes, JSON/type contracts and generated types on v0.33.14.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P02.C2",
+          "requirement": "`pnpm test:backend -- auth` proves register/verify/login/reset/profile/logout/refresh using actual auth and local mail; no plaintext credential storage in Git.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P02.C3",
+          "requirement": "`pnpm test:backend -- authorization` passes all permitted and denied actor cases, including unrevealed key/grade/expand/SSE checks and forged updates.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P02.C4",
+          "requirement": "`pnpm check && pnpm lint && pnpm build` passes; docs/API and ACCESS specify every exposed endpoint/table and device/auth decision. Google remains explicitly externally gated, not silently dropped.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P03",
+      "title": "Import the original question corpus safely",
+      "status": "pending",
+      "depends_on": [
+        "P02"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P03.T1",
+          "title": "Build source-safe import with a synthetic fixture first",
+          "status": "pending"
+        },
+        {
+          "id": "P03.T2",
+          "title": "Verify interruption, rerun and all-field preservation",
+          "status": "pending"
+        },
+        {
+          "id": "P03.T3",
+          "title": "Import all actual questions locally and verify",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P03.C1",
+          "requirement": "`pnpm test:import` passes missing-file, preservation, invalid-row, interrupted/resume, repeat and destination-safety cases.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P03.C2",
+          "requirement": "Dry-run reports the real source/destination without inserting rows; the actual import succeeds with source snapshot count equal to target imported count and zero unexplained rejected rows.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P03.C3",
+          "requirement": "`pnpm verify:corpus -- --source <snapshot> --depot <depot>` passes all-field canonical digests, distributions, SQLite integrity/FK checks and an idempotent rerun.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P03.C4",
+          "requirement": "Source was never opened writable and no private data is staged; API retrieval works after starting TrailBase. Store only sanitized counts/digests/commands in committed evidence.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P04",
+      "title": "Real multi-user test harness before feature expansion",
+      "status": "pending",
+      "depends_on": [
+        "P02"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P04.T1",
+          "title": "Own an isolated stack and deterministic fixtures",
+          "status": "pending"
+        },
+        {
+          "id": "P04.T2",
+          "title": "Create independent browser actors and real auth tests",
+          "status": "pending"
+        },
+        {
+          "id": "P04.T3",
+          "title": "Install reproducible diagnostics and CI",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P04.C1",
+          "requirement": "`pnpm test:e2e -- --project=chromium` completes real signup/verification/reset/login/logout and isolated actor-identity assertions.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P04.C2",
+          "requirement": "Live authorized data/SSE changes cross distinct contexts; an unauthorized context cannot mutate them; no API/SSE mocks or token injection.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P04.C3",
+          "requirement": "Harness lifecycle/safety tests prove foreign target refusal, run isolation and cleanup after success/failure; CI artifacts explain an induced failure without exposing secrets.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P04.C4",
+          "requirement": "Plan, unit, backend and implemented E2E tests run reproducibly in CI. Full gameplay is still pending and is not represented by a skipped passing test.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P05",
+      "title": "Host games, rounds and question selection",
+      "status": "pending",
+      "depends_on": [
+        "P03",
+        "P04"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P05.T1",
+          "title": "Recreate game lifecycle setup",
+          "status": "pending"
+        },
+        {
+          "id": "P05.T2",
+          "title": "Recreate round setup and order",
+          "status": "pending"
+        },
+        {
+          "id": "P05.T3",
+          "title": "Random selection, history and recycling",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P05.C1",
+          "requirement": "`pnpm test:e2e -- setup.spec.ts --project=chromium` passes real create/edit/reorder/delete/status/validation and reload persistence.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P05.C2",
+          "requirement": "`pnpm test:e2e -- questions.spec.ts --project=chromium` plus backend selection tests prove eligibility/history/recycle/insufficient-pool behavior.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P05.C3",
+          "requirement": "Actual imported corpus provides categories and selectable questions without loading the full corpus into the browser; timing/query measurements recorded.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P05.C4",
+          "requirement": "Type/lint/build/unit/backend/implemented E2E gates pass, with timer settings retained across edits and no cross-host mutation.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P06",
+      "title": "Lobby, teams, profiles and presence",
+      "status": "pending",
+      "depends_on": [
+        "P05"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P06.T1",
+          "title": "Code/QR join and active-game rejoin",
+          "status": "pending"
+        },
+        {
+          "id": "P06.T2",
+          "title": "Multi-user team/roster synchronization",
+          "status": "pending"
+        },
+        {
+          "id": "P06.T3",
+          "title": "Presence without relying on unload",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P06.C1",
+          "requirement": "`pnpm test:e2e -- join.spec.ts teams.spec.ts --project=chromium` proves H + four distinct users, two teams, UI-driven join/change/leave/rejoin and live roster without refresh.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P06.C2",
+          "requirement": "QR decode/copy URL and auth return-to tests pass; invalid/closed games and spoofed membership are denied at backend.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P06.C3",
+          "requirement": "`pnpm test:e2e -- profile.spec.ts presence.spec.ts --project=chromium` proves profile updates, avatar validation, visibility/stale/tab cleanup and recovery.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P06.C4",
+          "requirement": "All prior gates pass; H2/X isolation tests remain green as access expands for legitimate players.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P07",
+      "title": "Complete scored game through the actual UI",
+      "status": "pending",
+      "depends_on": [
+        "P06"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P07.T1",
+          "title": "Persist and render the state machine",
+          "status": "pending"
+        },
+        {
+          "id": "P07.T2",
+          "title": "Accept one answer, reveal once, grade atomically",
+          "status": "pending"
+        },
+        {
+          "id": "P07.T3",
+          "title": "Run the deterministic two-round game",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P07.C1",
+          "requirement": "`pnpm test:unit` and backend command tests prove state boundaries, stable permutation, authorization, atomic grading and idempotency.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P07.C2",
+          "requirement": "`pnpm test:e2e:game -- --project=chromium --retries=0` completes 2 rounds x 2 questions with four distinct logged-in players; final scores Alpha=3/Beta=1 and round scores [1,2]/[1,0] on every applicable UI.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P07.C3",
+          "requirement": "Concurrent teammates/reveal races/duplicate host requests produce one accepted answer and one state transition; zero unrevealed key/grade leakage via REST/expand/SSE.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P07.C4",
+          "requirement": "Controller navigation/preview/counts and player feedback/reload work; all earlier gates pass and full-game CI is mandatory.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P08",
+      "title": "Timer behavior and controller ergonomics",
+      "status": "pending",
+      "depends_on": [
+        "P07"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P08.T1",
+          "title": "Shared timer deadlines and pause/resume",
+          "status": "pending"
+        },
+        {
+          "id": "P08.T2",
+          "title": "All-answered notification and early reveal",
+          "status": "pending"
+        },
+        {
+          "id": "P08.T3",
+          "title": "Keyboard, controller settings and timers in real games",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P08.C1",
+          "requirement": "`pnpm test:unit -- timers` and `pnpm test:e2e -- timers.spec.ts --project=chromium` cover seven timer types, null/0, question/reveal switch, expiry, pause/resume and restored countdowns.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P08.C2",
+          "requirement": "Early-reveal on/off/>3s/<=3s/no-timer/paused/zero-team and race cases pass with exactly one transition and no extra points.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P08.C3",
+          "requirement": "Countdown divergence stays <=1 second after sync in the local test; no tick writes; lost-controller policy is documented and tested.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P08.C4",
+          "requirement": "Keyboard/focus/controller setting persistence tests and the full scored game remain green.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P09",
+      "title": "Display enrollment, pairing and shared rendering",
+      "status": "pending",
+      "depends_on": [
+        "P08"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P09.T1",
+          "title": "Device identity and claim/release lifecycle",
+          "status": "pending"
+        },
+        {
+          "id": "P09.T2",
+          "title": "Shared screen renders every gameplay state",
+          "status": "pending"
+        },
+        {
+          "id": "P09.T3",
+          "title": "Add display to the blocking full-game test",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P09.C1",
+          "requirement": "`pnpm test:e2e -- display.spec.ts --project=chromium` proves identity restart, claim race, invalid/expired code, scope denial, release/reassign and multiple displays.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P09.C2",
+          "requirement": "D sees every presentation state, timer/notification and exact score in the full multi-user game without mocked streams or refreshing to receive updates.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P09.C3",
+          "requirement": "Display completion/startup release and new code behavior passes; no credentials/key/answer leakage or arbitrary-game subscriptions.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P09.C4",
+          "requirement": "Full-game CI includes real D enrollment/pairing/cleanup and all earlier tests remain green.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P10",
+      "title": "Recovery, accessibility and repeatable cross-browser games",
+      "status": "pending",
+      "depends_on": [
+        "P09"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P10.T1",
+          "title": "Break networks, restart backend, restore state",
+          "status": "pending"
+        },
+        {
+          "id": "P10.T2",
+          "title": "Cross-browser/mobile/TV and accessibility",
+          "status": "pending"
+        },
+        {
+          "id": "P10.T3",
+          "title": "Repeated real games and imported-question smoke",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P10.C1",
+          "requirement": "`pnpm test:e2e -- recovery.spec.ts isolation.spec.ts --project=chromium` survives real backend restart and per-actor network loss, rejoin, expired auth, snapshot race and revoked access; state converges within 10s of readiness.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P10.C2",
+          "requirement": "Required browser/mobile/display projects and keyboard/accessibility/visual checks pass; no uncaught errors or hidden controls due to clipping.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P10.C3",
+          "requirement": "`pnpm test:e2e:repeat -- --runs=10` reports 10/10 complete real games with zero retries/unexpected skips; Firefox/WebKit each pass the complete game.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P10.C4",
+          "requirement": "`pnpm test:e2e:corpus` passes a real multi-user game using the privately imported corpus; evidence is sanitized and no original text/data is published.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P11",
+      "title": "Native macOS and Android TV display applications",
+      "status": "pending",
+      "depends_on": [
+        "P10"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P11.T1",
+          "title": "Real macOS shell features",
+          "status": "pending"
+        },
+        {
+          "id": "P11.T2",
+          "title": "Android TV app and remote navigation",
+          "status": "pending"
+        },
+        {
+          "id": "P11.T3",
+          "title": "Build and update pipeline",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P11.C1",
+          "requirement": "Actual macOS packaged display pairs and completes a browser-hosted multi-user game, including fullscreen/menu/borderless/monitor movement and restart identity; record OS/arch/hardware.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P11.C2",
+          "requirement": "Android TV debug APK installs/launches, remote focus/back/fullscreen work and a real multi-user browser game updates it correctly after resume/network loss.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P11.C3",
+          "requirement": "Native build checks pass with minimal capabilities; browser mode still builds/tests without invoking native APIs; versions/download metadata agree.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P11.C4",
+          "requirement": "macOS local signed update fixture installs/relaunches and preserves pairing, invalid update/signature fails safely; publish signing keys absent from Git. Unautomatable native checks have explicit human evidence, not skips.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "P12",
+      "title": "Final parity, release and operations rehearsal",
+      "status": "pending",
+      "depends_on": [
+        "P11"
+      ],
+      "blockers": [],
+      "tasks": [
+        {
+          "id": "P12.T1",
+          "title": "Close every parity and external-service gate",
+          "status": "pending"
+        },
+        {
+          "id": "P12.T2",
+          "title": "Rehearse deploy/backup/restore/upgrade safely",
+          "status": "pending"
+        },
+        {
+          "id": "P12.T3",
+          "title": "Run release gate and publish only with approval",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "P12.C1",
+          "requirement": "F01\u2013F30 each has current passing evidence or an explicitly owner-approved scope change; no mandatory criterion is blocked/skipped. Google OAuth and verification/reset work against approved real services.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P12.C2",
+          "requirement": "`pnpm verify:release` exits 0 after all required commands and zero-skip checks, including full two-round multi-user browser game, real question import/game, native platforms and clean-build reproducibility.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P12.C3",
+          "requirement": "Isolated staging HTTPS/deep-link/SSE game and backup/restore/upgrade rehearsal pass; operations docs let a fresh operator reproduce them without chat history.",
+          "status": "pending",
+          "evidence": []
+        },
+        {
+          "id": "P12.C4",
+          "requirement": "macOS/Android release artifacts, signatures, download/version links and supported update path verified; owner publication/license decisions recorded, public artifacts contain no private corpus/PII/secrets.",
+          "status": "pending",
+          "evidence": []
+        }
+      ]
+    }
+  ]
+}

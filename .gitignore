@@ -1,0 +1,50 @@
+# Dependencies and builds
+node_modules/
+.svelte-kit/
+build/
+dist/
+target/
+coverage/
+
+# Runtime depots, source snapshots, imported questions, local test output
+.local/
+.artifacts/
+traildepot/
+pb_data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+questions.tsv
+questions.csv
+questions.json
+!tests/fixtures/questions.json
+playwright-report/
+test-results/
+blob-report/
+playwright/.auth/
+
+# Credentials, mail, native signing and private release material
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.ipa
+*.apk
+*.aab
+*.dmg
+
+# Local tools / editor / OS
+.DS_Store
+.idea/
+.pi/

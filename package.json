@@ -1,0 +1,16 @@
+{
+  "name": "trail-party",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Acceptance-driven TrailBase, Svelte and Tauri learning project; planning foundation only.",
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "plan:check": "node scripts/plan.mjs check",
+    "plan:status": "node scripts/plan.mjs status",
+    "test:plan": "node --test scripts/plan.test.mjs"
+  }
+}
