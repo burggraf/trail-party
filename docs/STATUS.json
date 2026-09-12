@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Parent remote Linux execution/CI is the next gate, followed by explicit owner approval before any required Astra phase review. Historical SIGINT cleanup cause remains unidentified; do not call the independent repair a SIGINT fix; C4 stays pending and P02 unstarted.",
+  "next_action": "Remote Linux execution/CI evidence is recorded. Next action: obtain explicit owner approval before the required Astra phase review, followed by the parent phase-acceptance decision. P01/T3 remains blocked; historical SIGINT cleanup cause remains unidentified; do not call the independent repair a SIGINT fix; C4 stays pending and P02 remains unstarted.",
   "phases": [
     {
       "id": "P00",
@@ -81,7 +81,7 @@
       "depends_on": [
         "P00"
       ],
-      "blockers": ["Historical blocker retained: real SIGINT teardown returns exit 1 with an unidentified cleanup exception; this narrow independent cleanup repair is not its fix. Next action: parent remote Linux execution/CI, then explicit owner approval before any required Astra phase review; historical SIGINT cause remains unidentified."],
+      "blockers": ["Historical blocker retained: real SIGINT teardown returns exit 1 with an unidentified cleanup exception; this narrow independent cleanup repair is not its fix. Remote Linux execution/CI evidence is recorded. Next action: explicit owner approval before the required Astra phase review, followed by the parent phase-acceptance decision; historical SIGINT cause remains unidentified."],
       "tasks": [
         {
           "id": "P01.T1",

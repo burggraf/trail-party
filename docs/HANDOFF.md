@@ -68,6 +68,12 @@ The earlier bundled-Chromium download issue is resolved by the owner's installed
 
 T1 native window actually rendered shared `/display`, with owned cleanup. Its screenshot/evidence remain in P01; no new native-window/Android TV proof is claimed for T2. Tauri =2.11.5 / tauri-build =2.6.3; Rust 1.91.1, Node 26.7.0, pnpm 11.22.0, macOS 26.6.2 arm64. No global upgrades or pnpm release-age exemptions.
 
+## Remote Linux evidence alignment (2026-09-12)
+
+Actual runtime identity before this documentation-only update: provider `openai-codex`, model `gpt-5.6-luna`, reasoning `medium`. No Astra route occurred; Luna high or medium is accepted. Parent-consumed GitHub Actions run `34665191430` succeeded at commit `bcc98c26e5f36fafa30a8a829c5263bef89fa120`: https://github.com/burggraf/trail-party/actions/runs/34665191430 (job `103475548859`). The Ubuntu 24.04 Linux x86_64 job used Node 24 and frozen pnpm install, ran `node scripts/setup-trailbase.mjs`, and executed the downloaded pinned Linux binary. Output verified source `3f965de7ea516c43a54ca70a495e97f0c6d991ab`, SQLite `3.53.2`, and binary SHA256 `9a01230ef46f3a2b29ed0a9f6e6d72a3eeb35be185b83be32862f7c14f8828e3`.
+
+Bootstrap **24/24**, check/lint/unit/build, backend capabilities, scaffold, and plan/status/test-plan gates all passed; no skipped or cancelled steps. This is remote Linux foundation evidence only: it does not accept P01/T3 or C4, native packaged behavior, Android TV, gameplay, or resolve the historical SIGINT cause. **P01/T3 remains blocked and C4 remains pending.** Next action is asking the owner for explicit approval before the required Astra phase review, followed by the parent phase-acceptance decision. Direct-native limitations and the historical SIGINT blocker remain unchanged.
+
 ## Processes, scope and owner gates
 
 No owned application processes are currently running (dev/native/backend); the last recorded backend port **58214** and shell **4173** were clear, and `.local/test-runs/` was empty. No application process was started for this documentation-only alignment. Never kill an unknown listener or wipe an unmarked directory.
