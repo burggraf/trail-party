@@ -111,7 +111,7 @@ Record decisions for verification-first signup, first-answer semantics, display 
 
 ### P02.T1 — Define schema and safe API projections
 
-Design strict tables in ARCHITECTURE with real FK actions, ownership, unique membership/answer/pairing constraints, server timestamps, JSON defaults and indexes for hot queries. Use integer question PKs plus unique source_id unless the spike indicates otherwise; use appropriate user/UUID types for other records. Separate host-private assigned answers from public game state. Define roles and CRUD/read/subscribe capabilities in ACCESS. Apply baseline to two fresh depots, export insert/select/update JSON schemas/types and prove schema convergence. Do not add legacy deleted AI/audio/event collections.
+Implement only the labelled **P02 design contract** in [ARCHITECTURE](../ARCHITECTURE.md), [API](../API.md) and [ACCESS](../ACCESS.md): strict columns/defaults/FK actions/indexes/JSON metadata, immutable history/audit, integer question PK plus unique source_id, separate private assignment/grade material and safe read-only projections. Apply baseline to two fresh depots, export insert/select/update schemas/types and prove convergence. No private collection/expand/SSE or legacy deleted AI/audio/event collections. P02 game/round/member/answer/state data is synthetic schema/ACL fixture data, not gameplay implementation.
 
 ### P02.T2 — Implement auth/profile flows
 
@@ -119,7 +119,22 @@ Use real TrailBase register/verification/login/refresh/logout/reset APIs and loc
 
 ### P02.T3 — Enforce and attack the access matrix
 
-Test unauthenticated user, player, teammate, opponent, unrelated host, game host and device against REST, expand and SSE. Deny ownership changes, forged grades/host/user IDs, unrestricted questions/keys before reveal and cross-game controls. Prove legitimate team joins/reads aren't blocked by over-tight rules. Test FK mismatch, uniqueness races and partial-update semantics. Bootstrap test admins only outside normal UI. Ensure real data can't be deleted through a test reset command.
+Execute ACCESS's actor × resource × operation matrix against real REST/Record, expand and filtered SSE. Deny forged identity/role/ownership/grade/key/score, cross-game access, private bank/assignment/file leaks and stale version/idempotency changes. Prove legitimate scoped reads and auth/profile/device commands; fixture-only membership/lock checks do not claim functioning P06 joins. Test FK mismatch, uniqueness races, partial updates and already-open streams on revocation. Bootstrap fixture admins only outside normal UI; no production test reset or relaxed fixture ACL.
+
+### Pre-coding red checks
+
+Each named check must **first fail against the current P01-only repository**, with an executable assertion for missing required behavior, then be implemented minimally in its owning P02 task. A wrapper usage error alone, mocked service, skipped test or document marker is not behavioral acceptance. ACCESS supplies named subcases/oracles; extend the existing backend runner's schema/auth/authorization selectors as their tests arrive, without starting P03/P05–P10 commands.
+
+- **`schema-two-depots` — T1/C1:** two-fresh-depot migration/schema/generated-contract convergence; all column defaults/JSON/nullability/index/FK checks, integer question/source identity, immutable private-partner/history constraints, restart without reseed.
+- **`projection-rest-expand-sse` — T1/T3, C1/C3:** public/private leakage via REST/list/count/schema/filter/order, nested expand and actual filtered SSE; exact safe projections and already-open stream revocation, not client-filter-only isolation.
+- **`auth-local-mail` — T2/C2:** register -> verification-pending -> resend -> real local-mail verification -> login -> reset -> login -> refresh -> logout/rejected refresh reuse. Confirm pinned native HTTP details, visible mail/logout transport failure and startup session validation. Google OAuth credentials/real success stay externally gated; local callback validation is not Google evidence.
+- **`return-to-origin` — T2/C2:** validated same-origin relative return-to/join intent survives verification/login; reject open redirects, absolute/protocol-relative/double-encoded/backslash/control/userinfo targets and expired/nested intent.
+- **`avatar-boundary` — T2/T3, C2/C3:** server MIME/actual bytes/size/dimensions/ownership validation, safe roster projection and protected file access; replacement/removal, old URL denial, stale-write winner retention and cleanup.
+- **`device-claim-lifecycle` — T2/T3, C2/C3:** native anonymous refresh, one device identity, concurrent host claim CAS, HMAC hash/expiry/persistent rate limits (including unknown codes), release/reassign, lost local code, startup versus reconnect, irreversible refresh loss with explicit new pairing/no claim transfer.
+- **`constraint-partial-races` — T1/T3, C1/C3:** uniqueness/FK/partial-update races, cross-game composite keys, permanent roster lock even after Back, exactly one expected-version winner/audit, second-write rollback, operation retry/mismatched payload/expired operation rejection.
+- **`authority-forgery` — T3/C3:** forged user/host/game/device/role/ownership/grade/key/score/source labels; cross-game REST/expand/SSE and unrestricted private bank/assignment/file denial for every actor, including unrelated host and anonymous device. No admin/browser bootstrap.
+
+These are acceptance-first implementation obligations, **not tests executed by the documentation remediation**. P02 remains pending/unstarted until the parent authorizes its implementation; criterion and task IDs below remain unchanged.
 
 **Acceptance:**
 - **P02.C1:** `pnpm test:backend -- schema` proves repeatable fresh migrations, constraints/indexes, JSON/type contracts and generated types on v0.33.14.

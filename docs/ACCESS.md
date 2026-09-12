@@ -1,0 +1,116 @@
+# P02 access contract — deny by default (design only)
+
+This is a P02 schema/auth/security design, not implemented permission proof. [API](API.md) is the complete exposed surface and projection-column allowlist; [ARCHITECTURE](ARCHITECTURE.md#p02-design-contract--data-model-not-implementation) defines each table, FK, retention and version. P02 currently has no application tables, commands, account UI or authorization suite. Games, teams, answers and reveals used by P02 tests are **synthetic fixtures**, not working gameplay. P05–P10 own their positive command/UI flows.
+
+## Actors and server authority
+
+| Symbol / actor | Server meaning (relative to the target resource) |
+|---|---|
+| N — anonymous | No authenticated session, including unverified person who cannot yet log in. An anonymous display session is D, not N. |
+| V — verified user | Valid native verified email identity; no membership/host relationship to the target game. Role query parameters grant nothing. |
+| M — game player/member | Current recorded membership of the target game; pre-lock left members lose scope until authorized rejoin. After permanent lock, the registered member may rejoin the same row/team; left_at is absence, not a transfer. |
+| T — teammate | Another current member of the target member's team in that game. |
+| O — opponent | Current member of another team in the **same** game. Roster visibility is not unrevealed-answer visibility. |
+| X — unrelated host | Verified host of a different game, no membership of the target. Hosting somewhere does not grant a global host role. |
+| H — game host | Verified identity equals the immutable games.host_id for this target. Not a TrailBase administrator. |
+| D — anonymous display device | Native authenticated anonymous identity with exactly one matching displays.device_user_id; paired/unrevoked/current claim required for game scope. Unpaired D can read only its own display row and use its device commands. |
+| F — fixture administrator | Isolated owned-depot test provisioner, privileged outside the application. Never in browser/static bundle or a real actor context. Native administrator access can bypass Record ACLs; **not** a role whose app-level denial can be claimed. |
+
+Authenticate natively, then authorize against **live** built-in identity/profile/game/member/display rows. `HttpRequest.user().email === null` alone is not proof of anonymous status (pending/username policies exist); T2 must inspect the pinned `_user` identity fields without mutating built-in schema. A valid JWT, role string, host_id, game_id, team_id, device_user_id or profile snapshot is not sufficient. Foreign keys and immutable IDs prevent cross-game combinations, but do not replace authorization. Never infer authority from a client filter or possession of a record UUID.
+
+Verified-user/protected-write checks must honor authoritative session/identity state as supported by pinned TrailBase; T2 must record old-access-JWT revocation limits. Logout UI clears local streams/cache regardless of transport failure, but local clearing is not backend revocation proof. No immediate old-JWT invalidation is assumed from SDK logout's boolean.
+
+## Actor × resource × operation matrix
+
+Each cell is complete for P02: `R` = scoped REST/Record GET/read/list, `S` = scoped Record SSE, `C/U/D` = direct Record create/update/delete, `E` = expand. `—` denies **all R/C/U/D/E/S**. `RS` allows only R/S (C/U/D/E denied). All RS entries require the exact safe projection in API and the pinned leakage/revocation tests before enabling SSE. There are **no E grants** and **no direct client C/U/D grants** in P02; SDK execute/bulk endpoints obey the same denial. Missing resource/operation is denied, not inherited. Error/status behavior is API's common contract.
+
+`self` means only the actor's own verified profile; `scope` means shared-game roster/live claim as defined below. F column is the permitted **test activity**, not an asserted security restriction on a native admin: `seed` means isolated SQL/admin fixture create/read with constraints and controlled fixture updates/deletes; E/S are not used to prove ordinary actor behavior. `inspect` means isolated read-only inspection; `append` means controlled fixture insert/read only. No fixture privilege is exposed over app routes.
+
+| Resource / projection | N | V | M | T | O | X | H | D | F |
+|---|---|---|---|---|---|---|---|---|---|
+| P01 bootstrap_ready constant | R | R | R | R | R | R | R | R | inspect |
+| profiles_public (from `profiles`) | — | RS self | RS scope/self | RS scope/self | RS scope/self | RS self | RS own-game/self | RS claimed roster | seed |
+| games_public (from `games`) | — | — | RS scope | RS scope | RS scope | — | RS own | RS claimed game | seed |
+| games_host (from `games`) | — | — | — | — | — | — | RS own | — | seed |
+| `game_teams` safe columns | — | — | RS scope | RS scope | RS scope | — | RS own game | RS claimed game | seed |
+| `game_players` safe columns | — | — | RS scope | RS scope | RS scope | — | RS own game | RS claimed game | seed |
+| `game_state_public` (no key/grade/score) | — | — | RS scope | RS scope | RS scope | — | RS own game | RS claimed game | seed |
+| displays_public (from `displays`) | — | — | — | — | — | — | RS own claims | RS self only | seed |
+| `online` safe presence | — | — | RS scope | RS scope | RS scope | — | RS own game | RS claimed game | seed |
+| Base `profiles`, `games`, `displays` (not aliases) | — | — | — | — | — | — | — | — | seed |
+| `questions` / corpus / original answer order | — | — | — | — | — | — | — | — | seed synthetic |
+| `rounds` / future setup assignments | — | — | — | — | — | — | — | — | seed |
+| `game_questions` / future public-shaped content | — | — | — | — | — | — | — | — | seed |
+| `assignment_private` / original question FK/permutation/key | — | — | — | — | — | — | — | — | seed |
+| `game_answers` / accepted answer/attribution | — | — | — | — | — | — | — | — | append |
+| `answer_grades_private` / grade/points/derived scores | — | — | — | — | — | — | — | — | append |
+| `used_question_history` | — | — | — | — | — | — | — | — | append |
+| `pairing_limits` | — | — | — | — | — | — | — | — | seed |
+| `audit_events` | — | — | — | — | — | — | — | — | append/inspect |
+| `_user`, auth/session/reset tables, admin endpoints, depot/filesystem | — | — | — | — | — | — | — | — | isolated native tools only |
+
+Accepted answers have **no P02 read API**, including for H/T. In P07, first-valid submission returns accepted displayed label and immutable player/team attribution only to the authorized team/host; O/D get no opponent answer before reveal. Private source translation/key/grade/points remain server-only even after reveal; later specifically designed revealed projections may expose authorized results, never the private base collection. P02 fixtures must test denial with revealed=0 and 1, not turn on future endpoints prematurely.
+
+### Row rules and safe column predicates
+
+Use `acl_world` empty, `acl_authenticated` READ only, no mutation permissions, empty expand lists and schema access restricted to the same safe columns. Record rule SQL uses `_USER_` and `_ROW_`; aliases must expose an id sufficient to join to authority rows. Never rely on `_REQ_` filters for scope. Always parameterize custom SQL. Explicit excluded_columns is required; hidden `_` prefixes do not bar mutation and are not a private-data boundary.
+
+- **Game scope:** H owns non-deleted game; M/T/O have matching game_players.user_id/game_id and valid membership as defined above; D has live anonymous identity, matching device row, revoked_at NULL, non-null current host/game, matching games.host_id and a non-completed/non-deleted game. A member/host can read completed history; a display cannot retain completed scope. Pre-lock left membership is excluded. Claimed host loses the device projection immediately on release/reassign to another scope.
+- **Profile scope:** self verified profile; or target profile belongs to a member of a game the observer currently may view. H is constrained to their own game's roster. D cannot browse the user directory, arbitrary avatars or host-only identity data. Output only id/display_name/avatar_mime/avatar_revision/version/updated_at. No `_user` expand, email, username, verification flag, token, avatar_file/objectstore_path, filename or private metadata. If host profile is needed later, explicitly authorize that relationship, not a global profile list.
+- **Games:** games_public only the named safe columns; games_host adds host_id/join_code/timers/auto_reveal for that game's host. Join code is not an anonymous lookup capability in P02. Filter/order/count cannot query excluded columns. Secret sentinels must not affect unauthorized count responses.
+- **Teams/members/presence/state:** exact projection columns in API, game scope at every request/event; teams exclude soft-deleted rows. No arbitrary membership/team mutation; no update that silently changes ownership on a partial request. Public state has no generic metadata object to smuggle grades/keys/score totals. Presence never grants a role or changes eligible-team count.
+- **Displays:** only id/game_id/host_id/claim_version/settings/version/updated_at through displays_public; do not reveal code/hash/expiry/attempts/device identity in list/schema/SSE. No available-device listing and no filter oracle over code_hash. Host can only see claimed rows belonging to self; device sees self, not another display, even if both share a game. Claim output is not a reusable grant after release/reassignment.
+- **SSE:** tests must first subscribe successfully as each allowed actor, mutate synthetic rows as fixture provisioner, assert allowed delivery and no forbidden bytes. Include filtered subscribeAll, single-record subscriptions, omitted filters, attacker-supplied foreign filters, auth refresh/expiry and an already-open stream during member leave/device release/reassign. Server must reject further unauthorized delivery, not merely ask a cooperative client to unsubscribe. Until proven, disable the unsafe stream and leave C3 failing. Clients cancel/reconnect/resnapshot with fresh identity and reconcile versions; this is additional recovery, not authorization.
+- **Expand:** deny every relation, including self->_user, member->profile->avatar, question->bank/private, answer->grade, device->other game, and multi-hop/nested/list expansion. Deny excluded fields via all filter/order/schema paths as well. No expansion is needed when small safe collections already have scoped reads.
+
+## Handler operation permissions (all have E/S denied)
+
+These are the exact proposed API routes, not raw Record grants. `own` means live server-verified ownership; omitted actor grants are denied. P02 fixtures provision game relationships; they do not add join/start/answer backdoors.
+
+| Handler/resource operation | N | V | M/T/O | X | H | D | F |
+|---|---|---|---|---|---|---|---|
+| Native register, verification/resend, reset request/consume, Google start/callback | Auth protocol only | Auth protocol only | Auth protocol only | Auth protocol only | Auth protocol only | No person promotion through display UI | local auth scenario, no CLI verify substitute |
+| Native login | Verified credentials only | yes | yes | yes | yes | anonymous login only | baseline fixture setup |
+| Native status/refresh/logout | No session, no authority | own session | own session | own session | own session | own anonymous session | own isolated setup session |
+| POST profile create / PATCH name | — | own | own | own | own | — | no app bypass |
+| PUT/DELETE profile avatar | — | own | own | own | own | — | synthetic upload tests as ordinary actors |
+| GET protected avatar bytes | — | self | scoped roster/self | self | own roster/self | currently claimed roster | inspect synthetic only |
+| Native anonymous sign-in -> POST display/enroll | May obtain D identity only | Not an account conversion | Not an account conversion | Not an account conversion | Not an account conversion | own anonymous identity | bootstrap only outside UI |
+| POST display/code | — | — | — | — | — | own unclaimed device | no app bypass |
+| POST display/claim | — | — | — | — | own target game+valid code | — | no app bypass |
+| POST display/release | — | — | — | — | current own claim | own device | no app bypass |
+| POST display/reassign | — | — | — | — | current own claim; destination also own | — | no app bypass |
+| Setup/join/change-team/heartbeat/allocate/submit/reveal/score/complete/purge | — | — | — | — | — | — | seed/inspect only, not app endpoints |
+
+A player who hosts another target is evaluated as H **for that target**, not granted two global roles. A host cannot supply another user's id to profile endpoints. A new device cannot carry the old device_id/host/game claim after irreversible auth loss; transient refresh failure retains identity and never triggers takeover. Claim code format is six decimal digits; join game code is six uppercase alphanumerics—do not conflate them.
+
+### Atomic mutations, partial updates and audit
+
+Use exact closed handler inputs from API. Omitted fields mean unchanged; explicit NULL only where allowed. Unknown fields and forged user/host/game/device/role/ownership/grade/key/score/state/timestamp/version fields are rejected, never silently ignored. `expected_version` (and expected_claim_version / expected_game_version where specified) is a concurrency precondition, not a writable stored version. `operation_id` + issued_at is an idempotency key, not authority; current authorization is checked before reading its outcome.
+
+- SQL PK/UNIQUE/composite FKs plus immutable ownership/roster guards reject cross-game child rows, duplicate membership/team/order/code/answer and partial-update tricks. App mutation and audit commit together; a second-write CHECK or unique failure cannot leave the first write. Never use replace-on-conflict to steal ownership or overwrite accepted answers/history.
+- P02 profile/avatar handlers compare current owner/version, validate bytes and atomically write profile + audit. A stale upload cannot delete or replace a concurrent winner's file. A guessed direct file URL cannot bypass roster/current-pointer checks; no public static avatar directory. Test MIME spoofing, SVG/HTML/polyglot/malformed images, oversized encoded or decoded data, NULL removal and another owner's file identifiers.
+- Device claim has **one server transaction**, not lookup-then-client-update. Compare live game version/host, available/unexpired device and device claim_version; exactly one of two simultaneous hosts wins. Same-operation retry does not create another claim; different operation loses. Claims/releases/reassignments update both version counters and audit. Old host/device streams, avatar access and caches lose old-game scope before another scope is returned.
+- Hash six-digit codes with out-of-Git keyed HMAC; never raw or unsalted hash. Enforce expiry by server clock and actor/global/per-device attempt buckets, including unknown codes, with persistent 429 limits across restart. Failed attempts survive the rolled-back claim. Refresh 401 requires new identity/enrollment/pairing; network/5xx does not. Startup release differs from transient reconnect; ordinary release keeps a valid device-local code, missing plaintext uses explicit rotation with same identity, completion/new identity rotates. P09 UI/completion and P10 recovery remain later acceptance.
+- Audit successful profile/device commands with actor snapshot, operation/entity/action, keyed canonical request digest, before/after version, outcome and server timestamp. Never record secrets/content. Denied/conflict operations record bounded sanitized outcomes separately; duplicate operation cannot overwrite its original audit. Native auth uses native private sanitized logs rather than storing credentials/tokens in audit_events. Fixture admin activity is recorded by the fixture harness; no production test reset or administrator privilege delivered to an actor.
+
+## Named executable red cases — P02.C3 and prerequisites
+
+These names must become real named tests in the existing Node backend runner (`tests/backend/{schema,auth,authorization}.test.ts`) and its schema/auth/authorization selectors in their owning P02 tasks. The current wrapper accepts only capabilities: a usage error or missing spec alone is **not** eventual behavioral proof. Add the assertions, run them against the current P01-only schema/auth shell to capture intended red, then minimally implement their own task and rerun. No skipped/mocked suites. Commands here are **future** execution contracts, not commands run by this documentation change.
+
+| Stable red-check name / future selector / owner | Required named assertions and oracle |
+|---|---|
+| `schema-two-depots` / `pnpm test:backend -- schema` / T1,C1 | `fresh-depot-convergence`: two new owned depots, same normalized DDL/FK/index/default/JSON and generated insert/select/update schemas; restart unchanged. `private-partner-required`: incomplete assignment/private/history transaction fails at commit. `question-integer-source-id`: positive integer PK, unique source_id, source text/NULL metadata fidelity, no UUID dependency for offline import. No actual corpus. |
+| `projection-rest-expand-sse` / schema + authorization / T1/T3,C1/C3 | `private-sentinel-absent`: seed distinguishable synthetic bank/source label/permutation/key/grade/points/file/code sentinels. Check all allowed projections through list/read/count/schema/filters/expand and actual filtered SSE insert/update/delete; exact keys, zero private bytes. `foreign-filter-cannot-authorize`, `nested-expand-denied`, `open-stream-revoked`: include already-open old membership/claim streams. Assert an authorized event barrier so silence is not a disconnected-client false pass. |
+| `auth-local-mail` / `pnpm test:backend -- auth` / T2,C2 | `register-pending-no-session`, `resend-delivers-local-link`, `verify-expired-reused-link`, `login-verified-only`, `reset-local-link-single-use`, `refresh-retains-identity`, `logout-revokes-refresh`, `logout-transport-failure-visible`, `status-gates-restored-session`. Real local mail/real native auth; record exact pinned methods/errors. Controlled-provider callback validation is not Google success. |
+| `return-to-origin` / auth / T2,C2 | `join-intent-roundtrip`: valid same-origin relative join target survives pending/verify/login once. `open-redirect-rejected`: //evil, absolute URL, userinfo, backslash, encoded separators/double encoding, controls, nested target, fragment and expired intent never navigate externally. Backend callback allowlist and frontend pre-navigation validation both asserted; role grants nothing. |
+| `avatar-boundary` / auth + authorization / T2/T3,C2/C3 | `avatar-valid-own-replace-remove`, `avatar-mime-size-dimensions`, `avatar-owner-and-file-id-forgery`, `avatar-stale-replace-keeps-winner`, `roster-safe-profile-only`, `avatar-cross-game-read-revoked`. Valid upload roundtrip, real bytes/content-type, old-pointer denial and cleanup; MIME/size/path/ownership attack through custom and native Record/file/expand/SSE paths. |
+| `device-claim-lifecycle` / auth + authorization / T2/T3,C2/C3 | `anonymous-refresh-stable`, `one-device-per-identity`, `two-host-claim-one-winner`, `code-hash-no-plaintext`, `code-expired-and-unknown-rate-limited`, `attempts-persist-after-failure`, `release-cas-and-reassign-scope`, `startup-release-not-reconnect`, `lost-local-code-rotates-same-identity`, `irreversible-refresh-loss-no-transfer`. Two real host identities/devices and two fixture games; same-operation replay returns no old scope/secret, expiry/hash/attempt inspection stays fixture-private. |
+| `constraint-partial-races` / schema + authorization / T1/T3,C1/C3 | `unique-membership-team-round-order`, `composite-fk-cross-game`, `locked-roster-immutable-after-back`, `partial-null-omission-forgery`, `duplicate-operation-different-payload`, `expired-unknown-operation-rejected`, `stale-version-one-commit`, `second-write-rollback`. Inspect winner/row counts/version/audit and unchanged first write after forced second failure. Constraint fixtures are not functioning join/gameplay commands. |
+| `authority-forgery` / `pnpm test:backend -- authorization` / T3,C3 | `forged-user-host-game-device-role-owner`, `forged-grade-key-score-source-label`, `cross-game-rest-expand-sse`, `private-bank-assignment-always-denied`, `admin-bootstrap-not-in-bundle`, `test-reset-production-refused`. Run all matrix actors and direct PATCH/POST/DELETE/bulk/transaction attempts, omitted and explicit NULL owner fields, URL-based target changes, fake device IDs and foreign code/claims. Verify no mutation, no secret response, no forbidden SSE event and sanitized audit. |
+
+No positive joining/gameplay proof is claimed from a fixture administrator writing SQL. P02 proves schema invariants and legitimate scoped reads/profile/device commands; P06/P07 must later demonstrate real authorized joins/team operations/answers without fixture-admin writes during the positive flow. Fixture provisioner may create deterministic accounts outside signup scenario using the documented P01 workaround; every matrix attacker/allowed actor then authenticates normally with distinct native sessions. Do not promote a browser actor or reuse the admin token as host authority.
+
+## Explicit gates and boundaries
+
+T1 cannot pass if safe Record exclusions/generated contracts/SSE scope fail. T2 cannot pass on mocked mail, client-only avatar validation, unproven crypto/file storage or silently recreated anonymous identity. T3 cannot pass with a denied positive case, an untested matrix actor, skipped stream test or relaxed fixture-only ACL. Google OAuth credentials/real callback success, production SMTP, public anonymous-auth abuse protection, signing/native secure storage/hardware, private corpus import/rights, deployment and publication remain separate owner/external gates. An unresolved pinned capability is reported, not filled with an invented SDK method or bypass.
