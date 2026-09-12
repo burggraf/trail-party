@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Remote Linux execution/CI evidence is recorded. Next action: obtain explicit owner approval before the required Astra phase review, followed by the parent phase-acceptance decision. P01/T3 remains blocked; historical SIGINT cleanup cause remains unidentified; do not call the independent repair a SIGINT fix; C4 stays pending and P02 remains unstarted.",
+  "next_action": "Parent-controlled clean C4/native shutdown evidence is now recorded; obtain the parent decision and preserve the historical SIGINT limitation before any follow-up Astra phase-review disposition. P01/T3 remains blocked, C4 stays pending, and P02 remains pending; do not claim phase completion.",
   "phases": [
     {
       "id": "P00",
@@ -81,7 +81,7 @@
       "depends_on": [
         "P00"
       ],
-      "blockers": ["Historical blocker retained: real SIGINT teardown returns exit 1 with an unidentified cleanup exception; this narrow independent cleanup repair is not its fix. Remote Linux execution/CI evidence is recorded. Next action: explicit owner approval before the required Astra phase review, followed by the parent phase-acceptance decision; historical SIGINT cause remains unidentified."],
+      "blockers": ["Historical blocker retained: real SIGINT teardown returns exit 1 with an unidentified cleanup exception; this parent-controlled clean direct-group run does not identify or resolve that historical cause. Remote Linux execution/CI evidence is recorded. Parent decision remains required; future Astra use still requires explicit owner approval."],
       "tasks": [
         {
           "id": "P01.T1",
@@ -124,7 +124,7 @@
           "id": "P01.C4",
           "requirement": "Native dev shell loads the same static app on macOS; launcher owns/cleans its processes; P01 decisions are explicit with no unresolved architectural blocker.",
           "status": "pending",
-          "evidence": []
+          "evidence": ["docs/evidence/P01.md"]
         }
       ]
     },
