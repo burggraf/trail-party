@@ -74,14 +74,14 @@ Pinned release assets: https://github.com/trailbaseio/trailbase/releases/tag/v0.
 - WASM `HttpRequest.user()` is trusted server identity (padded Base64 user ID). Parameterized `base64_url_safe(?)` converts it to the BLOB FK. `new Transaction()` from `trailbase-wasm/db` provides synchronous `query`/`execute`/`commit`/`rollback`; do not await between statements. Two simultaneous expected-version mutations yield one commit and one 409, with an audit row in the same transaction. A second-write CHECK failure rolls back the first write.
 - Build: Vite ES library, strict entry exports and external `wasi:`/`trailbase:` imports, then `jco componentize ... --wit node_modules/trailbase-wasm/wit`. JCO reports its compatibility fallback to componentize-js **0.19.3**, retained in the lockfile; the resulting component is tested on the pinned backend. This does not upgrade TrailBase or global tools. Artifact/source hashes are in P01 evidence.
 
-## Remaining unknowns for P01.T3/P02 onward
+## Remaining acceptance and P02 onward
 
-- CI binary download URLs/digests, safe dev launcher and product decisions remain P01.T3. The probe runner is not that launcher.
+- P01.T3 now has shared verified release setup, safe dev launcher and six approved source-cited decisions (ARCHITECTURE/PARITY). Writer local execution is recorded in P01 evidence; fresh review, native startup/cleanup and actual remote Linux CI acceptance remain pending. The T2 probe runner stays separate.
 - Subscription lifecycle on auth refresh/expiry, resnapshot/reconnect after loss, and persistence across app reload remain application work. `onLoss` is not an automatic reliable-delivery guarantee.
 - ACLs on subscribe/filter/expanded data and revocation after membership changes. If a subscription outlives auth expiry, implement a documented revalidation strategy.
 - Apply the proven WASM transaction mechanism to actual game transitions/answer grading with production-equivalent schema and authorization; the current fixture is not game authority.
 - Exact avatar and OAuth callback APIs, auth persistence across browser reload/native restart.
-- Display credential mechanism: prefer built-in anonymous identity if durable token refresh + re-pair is sufficient; otherwise a narrowly scoped device flow. No fake verified email or browser administrator token.
+- Display credential mechanism is approved as built-in anonymous identity with durable token refresh and explicit re-pair on irreversible expiry (P01-D3). Persistence/expiry/pairing implementation and tests remain P02/P09/P10. No fake verified email or browser administrator token.
 - Remaining scalar boolean, file/expanded-relation and generated application type contracts. Keep generated API types separate from view/domain models.
 - Native macOS testing limits: official Tauri WebDriver does not provide equivalent macOS coverage. Browser WebKit is not the actual Tauri WKWebView. Choose a supported native automation method or keep an explicit manual gate.
 
@@ -94,3 +94,11 @@ Pinned release assets: https://github.com/trailbaseio/trailbase/releases/tag/v0.
 - [TrailBase auth](https://trailbase.io/documentation/auth/), [Record APIs](https://trailbase.io/documentation/apis_record/), [production](https://trailbase.io/documentation/production/). These live pages are secondary to the pinned binary/source.
 
 Registry checks used `pnpm view <package> version --json` and peerDependencies. Tauri release check used `gh api repos/tauri-apps/tauri/releases/latest`. Exact frontend patches are individually versioned; do not force every Tauri package to one patch number.
+
+## Explicit verified local backend setup (P01.T3)
+
+Run `node scripts/setup-trailbase.mjs`, then explicitly add the printed repository-local directory to PATH if desired. No global install or `pnpm dev` download. Node + `unzip` required. Existing destination/overrides and unsupported platforms are refused; no substituted archive/binary cache is accepted. Fresh official download bytes are size/SHA256-checked before extracting the sole executable member and asserting version/source/SQLite. Official archives also include CHANGELOG.md/LICENSE; member list is checked, archive paths are never used for writes.
+
+The shared manifest is **`scripts/trailbase-releases.json`**. It pins macOS arm64 (`a28454d67751863a2cce7b1477c603dc2321284d8804d9611aaa612523b5964f`, 25,282,295 bytes) and Linux x86_64 (`ef2f334704835dc67a95bb7f24961a0aa6ea8912d76d4ed2a09d488ddb7da453`, 29,555,962 bytes). [Official release metadata](https://api.github.com/repos/trailbaseio/trailbase/releases/tags/v0.33.14) and [tag ref](https://api.github.com/repos/trailbaseio/trailbase/git/ref/tags/v0.33.14) independently confirmed those digests and full source commit. Both fresh archives matched; compatible downloaded Mac executable passed the assertion and has SHA256 `0bfe77e850e1b3a30161555c4fb34f4eecf7c0f81939fd02aa43aa29bf22eaf9`, equal to installed `trail`. CLI only prints short source `3f965de7`; the official tag maps it to the pinned full commit.
+
+`.github/workflows/trailbase.yml` uses the same setup on actual Ubuntu 24.04/x86_64 with Node 24, pinned pnpm and frozen dependencies. It runs implemented bootstrap, backend, type/lint/unit/build, scaffold and plan gates; no raw credential-bearing log upload. Mac execution is not Linux proof. Browser shell remains installed-Chrome local acceptance, with pinned-browser CI in P04; Linux cannot establish native macOS or Android TV behavior.

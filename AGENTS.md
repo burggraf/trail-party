@@ -77,8 +77,12 @@ Read `docs/TESTING.md`. Real multi-user web E2E is a core deliverable, not optio
 
 `docs/STATUS.json` is the sole machine-readable task/criterion status source. The plan defines scope; evidence proves results; `docs/HANDOFF.md` records the most recent handoff. Do not maintain conflicting checkbox lists.
 
-Owner workspace preference: work directly on `main` in the current checkout; do not create worktrees unless the owner explicitly changes this preference.
+### Mandatory subagent dispatch
 
-Use stable phase/task/criterion IDs. Keep one writer per working tree. If delegating, use read-only parallel reviewers or sequential writers in this checkout; consume review results before declaring acceptance. Do not commit another worker's unrelated changes.
+For all additional work, dispatch a subagent for every task. Luna tasks may run with either `openai-codex/gpt-5.6-luna:high` or `openai-codex/gpt-5.6-luna:medium`; a high↔medium thinking-level routing change is acceptable and must not by itself stop the task. Explicitly pin and record the actual provider, model and reasoning level; report routing mismatches rather than silently substituting. Optional Astra escalation also requires explicit owner approval for that specific dispatch.
+
+Before every Astra dispatch, obtain explicit owner approval for that specific dispatch, including required Astra gates; pending approval pauses the gate, it does not waive the mandatory gate or substitute Luna as equivalent. A response actually routed to Astra is not an accepted Luna result and cannot be used as an Astra review without owner approval. Do not infer Astra approval from a requested pin, old runs, required gate wording, or a routing accident. The owner's specified **Astra with xhigh or max thinking** gates accept either `openai-codex/gpt-6-astra:xhigh` or `openai-codex/gpt-6-astra:max`; max is not mandatory. Prefer the working explicit `openai-codex/gpt-6-astra:xhigh` pin. These gates cover: (1) phase design/security review before P02, P07, P09, P10 and P12; (2) an independent review after each phase; and (3) final release and concurrency gates. Each independent review must use a fresh reviewer, not the phase implementer.
+
+The parent retains supervision, acceptance and Git publication authority. Use stable phase/task/criterion IDs and consume review results before declaring acceptance. Keep one writer per working tree, work directly on `main`, and do not create worktrees unless the owner explicitly changes that preference. Do not commit another worker's unrelated changes.
 
 End every development session with: completed work, actual checks run, current blockers, next command/task, and any running process IDs/ports. A fresh session must be able to continue without chat history.

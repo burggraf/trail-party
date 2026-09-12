@@ -1,0 +1,10 @@
+# P01 readiness only; no application auth/gameplay schema or capability-probe APIs.
+email {}
+server { application_name: "Trail Party development" }
+auth {}
+jobs {}
+record_apis {
+  name: "__READY_API__"
+  table_name: "bootstrap_ready"
+  acl_world: [READ]
+}

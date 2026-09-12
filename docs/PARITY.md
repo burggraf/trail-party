@@ -43,11 +43,11 @@ Lifecycle: `setup -> ready -> in-progress -> completed`.
 
 Presentation: `game-start -> round-start -> round-play(question) -> round-play(reveal) -> next question or round-end -> next round-start or game-end -> thanks -> return-to-lobby`.
 
-Back navigation includes removing a reveal, revisiting a previous question, and previous presentation states. Capture exact boundary behavior from the reference before implementing P07; do not infer it solely from enum ordering. Revisit/reveal must not duplicate scores or alter the saved permutation. Determine whether late joiners are immediately eligible for the current question and whether team changes after an answer affect that answer. Persist the approved rule and test it.
+Back navigation uses the approved contextual predecessor table in ARCHITECTURE P01-D6, never generic enum order. Revisit/reveal preserves scores/permutation and clears timers. P01-D5 permanently locks roster/team choice on first in-progress transition; no late joins or answer transfers. These are future P06–P08 acceptance requirements, not implemented gameplay.
 
 ## Explicit interpretation / reconciliation items
 
-- **First team answer:** current UI/service suggests one answer but tries updating an existing answer while PocketBase permissions restrict player updates. P01 records observed behavior. Default target: first valid answer wins; later attempts return the existing accepted answer/conflict consistently. Owner review required if evidence shows intentional answer editing.
+- **First team answer:** approved P01-D2: first valid answer wins atomically; later different attempts conflict/converge to that answer. The source update/client-grading path contradicts UI and final permissions and is repaired, not supported as answer editing.
 - **Registration:** fixed TrailBase email verification differs from reference immediate auto-login. Retain all account capabilities using a verification-first flow, documenting this necessary backend difference.
 - **Security:** do not reproduce answer leakage, permissive rules, stale presence, client-forged scoring or race conditions as parity requirements. Document differences and tests; seek owner input for changes to intentional visible behavior.
 - **Question filters:** limited first-page category sampling and first-500 used-history queries are implementation limitations, not intended features. Preserve the ability to choose categories/levels and avoid previously used questions across the full corpus.
@@ -58,3 +58,18 @@ Back navigation includes removing a reveal, revisiting a previous question, and 
 ## Source drift procedure
 
 At phase start run `git -C ~/dev/trivia-party rev-parse HEAD` and inspect diffs in referenced paths since the last recorded baseline. Add/update F IDs for confirmed scope changes with owner confirmation if substantial. Record active-source commit and any live app version/date in evidence. Reference deployment can diverge from local code; log discrepancies and choose explicitly. Never overwrite this baseline without keeping the prior commit in evidence.
+
+## Approved P01 decision traceability
+
+Full source/line citations, authority and rejected alternatives are in [ARCHITECTURE](ARCHITECTURE.md#p01-approved-behavioral-decisions-specification-not-implemented-gameplay), at reference commit `442890dda579c6cb108d2f4851816e4388207627`. Source inspection is not a live-site observation. Structural bootstrap tests only check durable decision/pin documentation; gameplay checks below are required in their future phases.
+
+| Decision | Parity | Phase / required future proof | Preserve / reconcile |
+|---|---|---|---|
+| P01-D1 verification-first | F02/F10/F29 | P02/P04: auth/mail/resend/reset/safe return-to | Keep register/join intent; replace immediate auto-login and hidden mail failure |
+| P01-D2 first valid answer | F09/F13/F15/F29 | P07: concurrent-answers, transitions, authorization | One team answer; atomic first valid, idempotent retry, stable attribution/grade; reject stale/forged requests |
+| P01-D3 anonymous display | F22/F23/F24/F29 | P02/P09/P10: display, recovery | Stable refreshed identity; actual startup release vs transient reconnect, valid code reuse, completion rotation, unrecoverable expiry re-pair, no claim transfer |
+| P01-D4 controller-only expiry | F17/F18/F19/F21 | P08/P10: timers, recovery, duplicate-controller races | Offline zero leaves state unchanged; one current-version expiry on reconnect, fresh next deadline, no catch-up |
+| P01-D5 permanent membership lock | F10/F11/F12/F15/F29 | P06/P07/P10: join, teams, concurrent-answers, recovery | Ready/game-start only; lock atomically on first in-progress, members rejoin, all new joins/team changes denied even after Back |
+| P01-D6 contextual predecessor | F09/F13/F14/F18/F21 | P07/P08: transitions, game, timers | All boundary targets explicit; Back clears timer, grades/scores stable, hidden projections omit keys, completion terminal |
+
+P01 launcher/release lifecycle is the **F30 foundation**, not P12 deployment/restore or application persistence parity. P01.C4 still requires parent native shared-window/cleanup and actual Linux CI checks; bootstrap success alone cannot complete it.

@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P01.T3: read the selected product/API decisions and reference behavior, mark T3 in_progress, then acceptance-first implement safe dev-launcher readiness/ownership and verify pinned CI backend release artifacts. T2/C2/C3 accepted; no gameplay implementation yet.",
+  "next_action": "Parent remote Linux execution/CI is the next gate, followed by explicit owner approval before any required Astra phase review. Historical SIGINT cleanup cause remains unidentified; do not call the independent repair a SIGINT fix; C4 stays pending and P02 unstarted.",
   "phases": [
     {
       "id": "P00",
@@ -77,11 +77,11 @@
     {
       "id": "P01",
       "title": "Scaffold once; prove the pinned backend",
-      "status": "in_progress",
+      "status": "blocked",
       "depends_on": [
         "P00"
       ],
-      "blockers": [],
+      "blockers": ["Historical blocker retained: real SIGINT teardown returns exit 1 with an unidentified cleanup exception; this narrow independent cleanup repair is not its fix. Next action: parent remote Linux execution/CI, then explicit owner approval before any required Astra phase review; historical SIGINT cause remains unidentified."],
       "tasks": [
         {
           "id": "P01.T1",
@@ -96,7 +96,7 @@
         {
           "id": "P01.T3",
           "title": "Resolve behavioral/API decisions and bootstrap safety",
-          "status": "pending"
+          "status": "blocked"
         }
       ],
       "criteria": [

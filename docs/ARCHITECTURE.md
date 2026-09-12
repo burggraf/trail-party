@@ -86,7 +86,7 @@ Before reveal, player/display responses contain question text and shuffled choic
 
 One small subscription helper owns stream cancellation, reconnect with bounded backoff and fresh auth, then re-reads authoritative state after reconnect or loss. Subscriptions are scoped to the active game/team/device. No full question-bank subscriptions. A snapshot/subscription race must not miss an update: subscribe/buffer then snapshot and reconcile by version, or prove an equivalent ordering strategy.
 
-Persist server-originated deadlines, remaining paused duration and phase version. Clients render countdowns locally; they must not write every tick. Manual next/back, timer expiry, early-reveal and duplicate host tabs must converge on one transition. Timers are not a reason to invent a distributed scheduler: begin with an active controller requesting an idempotent server-validated expiry, then reconcile expired state on reconnect. Define and test behavior while every controller is disconnected; do not silently promise unattended scheduling absent from the reference.
+Persist server-originated deadlines, remaining paused duration and phase version. Clients render countdowns locally; they must not write every tick. Manual next/back, timer expiry, early-reveal and duplicate host tabs must converge on one transition. Timers are not a reason to invent a distributed scheduler: an active controller requests an idempotent server-validated expiry. P01-D4 below fixes the offline/reconnect policy; there is no unattended scheduling.
 
 Seven timer settings: game_start, round_start, question, answer, round_end, game_end, thanks. Null/zero disables a timer. Auto-reveal when all teams answer is configurable; the reference uses a three-second notification only when more than three seconds remain, and does not trigger while paused. Count registered eligible teams, not currently visible players; verify zero teams and late joins.
 
@@ -94,9 +94,7 @@ Seven timer settings: game_start, round_start, question, answer, round_end, game
 
 Email/password signup, verification, login, reset, profile name/avatar and logout use real TrailBase auth. Retain return-to/join-link intent across login. Google OAuth uses real configuration and a credential-dependent acceptance gate; local controlled OAuth-provider testing may validate callback logic but cannot prove Google success.
 
-The current reference auto-logs in before email verification, while TrailBase does not. Preserve the user's ability to register and join, with a clearly documented verification step; do not weaken TrailBase security to copy this detail. Confirm that interpretation in P01's behavior decisions.
-
-The reference creates fake-email device accounts; do not copy that trick. P01 must prove anonymous device identity renewal/re-pair or a minimal durable device enrollment mechanism under the fixed version. Losing an expired identity may require re-pair, but app restart with valid credentials must preserve identity. Session TTL/garbage collection is explicitly tested and documented. Never put admin tokens or arbitrary user-creation powers in the display bundle.
+P01-D1 approves verification-first signup rather than the reference's immediate login. P01-D3 selects anonymous display identity, stable refresh and explicit re-pair after irreversible expiry. T2 proves anonymous refresh retains identity; browser/native persistence, pairing and expiry remain P02/P09/P10 work. Never put admin tokens or arbitrary user-creation powers in the display bundle.
 
 ## Corpus import
 
@@ -111,3 +109,68 @@ Destination must be an explicitly selected stopped local depot with ownership ma
 Every implementation phase extends real backend and browser tests. `docs/TESTING.md` is binding. CI uses synthetic, original questions; a separate required local corpus gate checks the full private import. Identical migrations/Record APIs/handlers run in development, tests and production with configuration-only differences.
 
 Browser production uses built static assets, preferably served by `trail run --public-dir ... --spa` or nginx static fallback; API/realtime paths must never be rewritten to index.html. Tauri bundles those assets and connects to its configured backend, not an embedded PocketBase or per-device database. Use HTTPS and precise production CORS/CSP. Native updater keys, OAuth/SMTP configuration and signing remain outside Git.
+
+## P01 approved behavioral decisions (specification, not implemented gameplay)
+
+Owner-approved through the supervisor, 2026-09-11. Reference paths/line ranges below are relative to read-only `~/dev/trivia-party` at **442890dda579c6cb108d2f4851816e4388207627**; no live behavior or production mutation is claimed. TrailBase sources are pinned to **3f965de7ea516c43a54ca70a495e97f0c6d991ab**. PARITY maps each decision to future executable acceptance. These decisions resolve P01 ambiguity, not P02–P10 implementation.
+
+### P01-D1 — Verification-first signup
+
+Register, retain a validated same-origin return-to/join intent, then show **verification-pending** with resend/retry. No authenticated application session until verification succeeds; normal login restores intent. Mail-delivery failure is visible/recoverable, not success merely because an account exists. Verify actual local mail, link, resend, login, reset and safe return-to in P02/P04.
+
+Source: `src/pages/AuthPage.tsx:121-152` requests verification, swallows mail failure and immediately logs in. That auto-login is intentionally reconciled with pinned [SDK client.ts:209-216](https://github.com/trailbaseio/trailbase/blob/3f965de7ea516c43a54ca70a495e97f0c6d991ab/crates/assets/js/client/src/client.ts#L209-L216): email registration does not sign in until verified. Do not weaken identifier/verification policy.
+
+### P01-D2 — First valid team answer wins
+
+The server atomically accepts the **first valid** answer per current unrevealed game-question/eligible team from a current team member. Invalid, unauthorized or stale attempts never reserve the slot. Same operation identity retries are idempotent; a later different answer conflicts and returns/points to the authoritative accepted answer. Simultaneous teammates converge. Accepted answer, attribution and stored permutation never change on back/reveal/reconnect. Client-supplied grade, translated answer, score, host/team ID or key is not authority.
+
+Source: `src/components/games/RoundPlayDisplay.tsx:186-201,248-277` locks UI after one answer; `src/pages/GamePage.tsx:228-288` synchronizes teammates. `src/lib/gameAnswers.ts:108-161` nevertheless read-then-creates/updates and calculates a client grade. `pb_migrations/1761489194_updated_game_answers.js:1-10` has the unique team/question index; `1761844722_updated_game_answers.js:1-16` makes updates host-only. Editing/races/client grading are defects, not intentional answer-edit parity.
+
+### P01-D3 — Anonymous display identity and re-pair
+
+Use TrailBase anonymous identity, not fake email/password users. Persist SDK tokens in platform-appropriate local storage; validate/refresh before device-record work. Valid refresh retains identity (real T2 probe `tests/backend/capabilities.test.ts:162-179`). Actual application startup intentionally releases a claim and shows the existing valid code without changing identity. Transient reconnect does not release. Ordinary startup/release retains valid code; completion, explicit code-expiry policy or new identity rotates it.
+
+Only definitive **unrecoverable** auth loss (pinned SDK refresh 401 clears auth) creates a new identity/code and requires new host pairing; never transfer the old claim. Network refusal, timeout, 5xx or SSE loss retains identity and retries/reconciles. Claim/release are atomic authenticated commands. Configure anonymous refresh TTL and stale anonymous/display cleanup; pinned default is 90 days, not a hard-coded production promise.
+
+Source: display `trivia-party-display/src/contexts/DisplayContext.tsx:84-160,219-257,292-344` persists identity, releases at startup and rotates at completion but over-broadly clears credentials on 400. `src/components/games/DisplayManagement.tsx:86-108` has a race-prone query/update claim. Pinned [client.ts:685-715](https://github.com/trailbaseio/trailbase/blob/3f965de7ea516c43a54ca70a495e97f0c6d991ab/crates/assets/js/client/src/client.ts#L685-L715) and [config.proto:101-126,204-220](https://github.com/trailbaseio/trailbase/blob/3f965de7ea516c43a54ca70a495e97f0c6d991ab/crates/core/proto/config.proto#L101-L126) define irreversible loss, TTL and cleanup. Fake credentials/permissive claim are repaired, not preserved.
+
+### P01-D4 — Controller-only expiry, no offline catch-up
+
+Persist server-originated deadline and phase version; clients render locally, with no tick writes. Only an active authenticated controller requests expiry. Server checks current version, phase, unpaused status and expired deadline, then performs one idempotent transition. With all controllers offline, countdown reaches zero and authoritative state remains unchanged indefinitely; players/displays never advance it. First controller load/reconnect requests exactly one current-version expiry; the next phase gets a fresh deadline from transition time. There is **no offline catch-up** through multiple phases. Duplicate tabs/manual-next versus expiry use expected-version CAS; loser resnapshots.
+
+Source: `src/pages/GamePage.tsx:460-474` and display `components/GameDisplay.tsx:89-105` render only. `src/pages/ControllerPage.tsx:878-902` alone calls next on expiry. Retain that authority split, repair unversioned client races; do not add an unattended scheduler.
+
+### P01-D5 — Permanent roster/team lock at first in-progress transition
+
+Membership/team choice is mutable only while `ready` at `game-start`. The first transition to `in-progress` atomically locks roster/team assignments. Existing members may rejoin; reject new players and every team change after lock on all routes. Presentation back to game-start **never unlocks** membership. A hypothetical reopening would require a separate explicit lifecycle operation, not navigation. Accepted answers remain attributed to their immutable accepted team; no transfer.
+
+Source: ready-only Change Team `src/components/games/states/GameStart.tsx:50-72`, start status `src/pages/ControllerPage.tsx:649-666`, existing-member rejoin/new-player rejection `src/pages/LobbyPage.tsx:64-88` and `e2e/rejoin-in-progress.spec.ts:4-8,51-95`. `src/pages/JoinPage.tsx:37-65` omits the in-progress guard: a source-observed direct-link bypass, not observed live behavior. Chosen option A repairs it. Late join eligible-next-question (B) or immediate join/transfer (C) were rejected as unsupported complexity.
+
+### P01-D6 — Back uses the contextual predecessor
+
+| Current presentation | Approved Back target |
+|---|---|
+| `game-start` | Disabled |
+| First `round-start` | `game-start` |
+| Later `round-start` | Previous round's `round-end` |
+| Q1 unrevealed | Current `round-start` |
+| Qn unrevealed, n > 1 | Q(n-1), unrevealed |
+| Qn revealed | Same Qn, unrevealed |
+| `round-end` | That round's last question, revealed |
+| `game-end` | Final `round-end` |
+| `thanks` | `game-end` |
+| completion / return-to-lobby | Terminal; cannot reopen |
+
+Every backward transition clears the active timer. Forward creates only the normal fresh resulting-phase timer. Accepted answers, permutation, private grades and aggregate scores stay stable; re-reveal cannot grade/score twice. Hiding reveal removes key/grade details from current player/display projections but cannot undo human knowledge. Returning to game-start does not change lifecycle or roster lock.
+
+Source: `src/pages/ControllerPage.tsx:793-854` implements same-question hide/previous-question hide and clean writes without timers. Its enum fallback `:858-864` loses context: forward `:630-643,717-745` drops question/round fields. Contextual predecessor (A) repairs incomplete/wrong-round states; disabling all boundary Back (B) or copying broken enum order (C) were rejected. `src/lib/scoreboard.ts:44-180` recalculates from accepted graded answers rather than incrementing on each reveal. This boundary table is an explicit target decision, not a claim the broken source boundary works.
+
+## P01 local launcher and release setup
+
+`pnpm dev` owns TrailBase plus installed Vite's JavaScript server in one Node lifetime, retaining Tauri's existing `beforeDevCommand` and shared `/display`. No pnpm/Vite child tree, gameplay schema, WASM fault endpoint or automatic install. `backend/config/development.textproto` and the single append-only readiness migration are source-controlled; a new public read-only API nonce each start exposes only `{id:1,schema_version:1}`. Readiness requires that owned child alive, health, this schema/instance row, then Vite `/display` HTML. This is migration/bootstrap readiness, not application auth/gameplay acceptance.
+
+Default depot `.local/dev/depot` persists on stop. Overrides must be direct named children of `.local/dev/`; existing unmarked/wrong-owner paths, external targets, root/marker/depot-tree symlinks and file hardlinks are refused. An exclusive sibling `.lock` covers creation through awaited cleanup; a stale lock is not automatically stolen (inspect processes before manual recovery). Port/host/version preflight occurs before depot writes. Only `127.0.0.1` and decimal ports 1–65535 are accepted. Occupied ports fail without signaling listeners. Normal stop, SIGINT/SIGTERM/SIGHUP, startup/child failure close Vite and terminate only the created TrailBase process group, with 5s escalation; depot data is never reset. Uncatchable SIGKILL/machine loss may require explicit stale-lock recovery. This is cooperative local ownership, not a sandbox against a hostile same-UID process changing files concurrently.
+
+Backend stdout/stderr go only to exclusive mode-0600 ignored `.artifacts/p01-t3/dev/run-*/trail.log`; terminal errors disclose sanitized status/paths, never credentials. Logs/depots must not be served by Vite or published. `pnpm test:bootstrap` uses real successful stacks, persistent SQLite restart and narrowly injected negative children; synthetic test workspaces alone are removed.
+
+Explicit setup: `node scripts/setup-trailbase.mjs`, then add its printed `.local/tools/trailbase-v0.33.14-<platform>-<arch>` directory to PATH. Requires Node and `unzip`; supports actual macOS arm64/Linux x86_64 only, refuses destination overrides/existing installs/cache substitution. Shared `scripts/trailbase-releases.json` pins official URLs, sizes, SHA256, full source and SQLite. Download bytes are verified before extracting only the expected `trail` member into a fresh private directory; execute/assert the exact version before installation. No global install/upgrade, floating installer or binary cache reuse. The manifest's short CLI source identifier maps to the independently checked official full tag commit. Linux CI uses this same command and frozen dependencies; local Mac execution is not Linux/native-window evidence. C4 stays pending parent native/remote-CI acceptance.

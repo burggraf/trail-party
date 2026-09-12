@@ -1,0 +1,18 @@
+{
+  "version": "0.33.14",
+  "sourceCommit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
+  "sqlite": "3.53.2",
+  "versionOutput": "trail v0.33.14-0-g3f965de7 (2026-09-10)\nsqlite: 3.53.2",
+  "artifacts": {
+    "darwin-arm64": {
+      "url": "https://github.com/trailbaseio/trailbase/releases/download/v0.33.14/trailbase_v0.33.14_aarch64_apple_darwin.zip",
+      "sha256": "a28454d67751863a2cce7b1477c603dc2321284d8804d9611aaa612523b5964f",
+      "size": 25282295
+    },
+    "linux-x64": {
+      "url": "https://github.com/trailbaseio/trailbase/releases/download/v0.33.14/trailbase_v0.33.14_x86_64_linux.zip",
+      "sha256": "ef2f334704835dc67a95bb7f24961a0aa6ea8912d76d4ed2a09d488ddb7da453",
+      "size": 29555962
+    }
+  }
+}
