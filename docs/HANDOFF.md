@@ -1,12 +1,22 @@
 # Development handoff
 
-Updated: 2026-09-11. Repo: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner preference: **no worktrees; work on main**.
+Updated: 2026-09-12. Repo: https://github.com/burggraf/trail-party. Checkout: `~/dev/trail-party`, branch **main**. Owner preference: **no worktrees; work on main**.
+
+## Current Astra policy update — 2026-09-12
+
+Owner-authorized global router policy correction remains in effect: `modelThinking` maps `openai-codex/gpt-5.6-luna` to `max` and `openai-codex/gpt-6-astra` to `medium` in `/Users/markb/.pi/agent/codex-router.json`; the explicit thinking override remains authoritative. The owner changed the repeated-approval rule: no per-dispatch approval is required for this bounded, pre-approved Astra review pattern—exact runtime `openai-codex/gpt-6-astra:medium`; fresh, read-only design/security review before P02, P07, P09, P10 and P12; fresh independent post-phase reviews; and final release and concurrency reviews named by the plan. Any other Astra use (implementation, mutation, scout, general advice, or a different model/reasoning level) still requires explicit owner approval. Astra xhigh/max remain prohibited. Luna/max remains the default for implementation and ordinary workers. Actual runtime for this update: provider `openai-codex`, model `gpt-5.6-luna`, reasoning `max`.
+
+The fresh P02 design/security review returned **ready** with `phase_accepted:false`; this is design readiness, not P02 acceptance. The owner authorized P02.T1 implementation. P02.T1 is now parent-accepted complete and P02.C1 passed after the pinned v0.33.14 schema/projection/constraint gates and fresh independent Luna/max review; P02 remains in progress with T2/T3 and C2–C4 pending. No phase acceptance is claimed. The next exact action is P02.T2 acceptance-first auth/profile red checks. The T1 implementation/evidence is committed in the current P02.T1 commit; router checkout edits remain external/uncommitted; no push or publication occurred.
+
+### Current P02.T1 checkpoint — 2026-09-12
+
+Three versioned migrations define the strict P02 schema, immutable/cross-row guards and safe projection views; development config exposes only eight authenticated read-only projections. Fresh pinned backend evidence is in `docs/evidence/P02.md` and private `.artifacts/p02/correction2-final-*` logs. Schema passed 3/3 and P01 capabilities passed 8/8 with zero skips; the runner rebuilds the test-only WASM probe before both selectors. The circular assignment/private/history invariant was verified by host SQLite and an authenticated pinned WASM transaction probe: incomplete partner commits fail, complete partner transactions commit, both mismatch directions roll back without residue. The independent bounded Luna/max review returned ready with no findings. Auth/mail/avatar/device lifecycle, full authorization/revocation and gameplay remain pending; no P02 phase acceptance is claimed.
 
 ## Current boundary
 
-**Current canonical status:** P01, P01.T3 and P01.C4 are complete/passed under the owner-approved residual-risk decision. The unresolved historical SIGINT cause is unproven and remains accepted residual risk; this handoff does not claim a historical fix. P02 is pending/unstarted with no implementation. The next action is owner approval before the Astra P02 design/security review, then P02.T1. The current Astra policy is exact: every future Astra dispatch requires explicit owner approval for that specific dispatch; the only accepted target is exactly `openai-codex/gpt-6-astra:medium`; Astra xhigh and max are not permitted for future dispatches. Verify and record the actual runtime provider, model and reasoning level; any actual Astra route without approval is unauthorized and must stop/report. Historical xhigh/max records below remain preserved as evidence only and do not authorize future use.
+**Current canonical status:** P01, P01.T3 and P01.C4 are complete/passed under the owner-approved residual-risk decision. The unresolved historical SIGINT cause is unproven and remains accepted residual risk; this handoff does not claim a historical fix. P02 is in progress: P02.T1 and P02.C1 are complete/passed; T2/T3 and C2–C4 remain pending. The next action is P02.T2's acceptance-first auth/profile red checks. The current Astra policy is exact: no per-dispatch approval is required only for the bounded review pattern of exact runtime `openai-codex/gpt-6-astra:medium`, fresh read-only design/security reviews before P02, P07, P09, P10 and P12, fresh independent post-phase reviews, and final release/concurrency reviews named by the plan. All other Astra use requires explicit owner approval; Astra xhigh/max remain prohibited. Verify and record the actual runtime provider, model and reasoning level and stop on mismatch. Historical xhigh/max records below remain preserved as evidence only and do not authorize future use.
 
-The owner-approved completion is supported by the parent-controlled native and remote Linux evidence recorded below. Historical dated sections remain preserved as historical evidence, including their superseded blocked/pending snapshots. Nothing from this documentation-only alignment is staged, committed or pushed.
+The owner-approved completion is supported by the parent-controlled native and remote Linux evidence recorded below. Historical dated sections remain preserved as historical evidence, including their superseded blocked/pending snapshots. The T1 implementation/evidence is committed in the current P02.T1 commit; historical records below retain their original staging/publication wording, and no push or publication occurred.
 
 ### Historical continuation and preserved failures
 
@@ -30,9 +40,9 @@ Accepted T2 implementation commit **`516755d1b4a72c92a847e33ac7d41a0702309921`**
 
 The current Luna review is consumed, and the direct native shutdown diagnostic passed. The historic SIGINT exception remains unidentified; P01/T3 remain blocked, P01 and C4 remain unresolved, and the current next gate is parent remote Linux execution/CI. Explicit owner approval is required before any needed Astra phase review; no phase acceptance is claimed.
 
-1. Confirm Git status/branch; read STATUS, P01.T3 and evidence; run `pnpm plan:check`, `pnpm plan:status`, `pnpm test:plan`, `trail --version`.
-2. Parent performs remote Linux execution/CI next, preserving the historical SIGINT blocker and unresolved P01/C4 status.
-3. Obtain explicit owner approval before any required Astra phase review. Do not launch overlapping writers, add response aliases, switch execution modes, or publish.
+1. Confirm Git status/branch; read STATUS, P02.T1 evidence and the P02 contract; run `pnpm plan:check`, `pnpm plan:status`, `pnpm test:plan`, and the pinned `trail --version`.
+2. Begin P02.T2 acceptance-first auth/profile red checks against the accepted T1 schema using the pinned v0.33.14 backend and isolated local mail.
+3. Preserve P02.C1 evidence and the P01 residual-risk record; do not claim P02 phase acceptance or start P02.T3/full gameplay. Do not launch overlapping writers, add response aliases, switch execution modes, or publish.
 
 ## Actual verification
 

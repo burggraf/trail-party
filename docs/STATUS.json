@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P02 design/security review; obtain owner approval before the Astra dispatch, then begin P02.T1.",
+  "next_action": "P02.T2 acceptance-first auth/profile red checks against the accepted P02.T1 schema; then implement real local-mail auth and profile flows.",
   "phases": [
     {
       "id": "P00",
@@ -131,7 +131,7 @@
     {
       "id": "P02",
       "title": "Data model, real authentication and authorization",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "P01"
       ],
@@ -140,7 +140,7 @@
         {
           "id": "P02.T1",
           "title": "Define schema and safe API projections",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P02.T2",
@@ -157,8 +157,8 @@
         {
           "id": "P02.C1",
           "requirement": "`pnpm test:backend -- schema` proves repeatable fresh migrations, constraints/indexes, JSON/type contracts and generated types on v0.33.14.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P02.md"]
         },
         {
           "id": "P02.C2",
