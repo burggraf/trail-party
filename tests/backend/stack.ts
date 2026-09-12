@@ -10,6 +10,7 @@ import { initClient } from 'trailbase';
 
 const root = resolve('.local/test-runs');
 const trailCommand = process.env.TRAILBASE_BIN?.trim() || 'trail';
+const mailpitCommand = process.env.MAILPIT_BIN?.trim() || 'mailpit';
 const env = { ...process.env, RUST_LOG: 'info' };
 
 export async function removeOwnedDepot(depot: string, marker: string) {
@@ -30,6 +31,15 @@ async function freePort(): Promise<number> {
 
 function runSqlite(dbPath: string, script: string, args: string[] = []) {
   return spawnSync('python3', ['-c', script, dbPath, ...args], { encoding: 'utf8', env });
+}
+
+function verifyMailpitVersion() {
+  const result = spawnSync(mailpitCommand, ['version', '--no-release-check'], { encoding: 'utf8', env });
+  assert.equal(result.status, 0,
+    `Mailpit v1.31.0 is required and could not be executed (${mailpitCommand})`);
+  assert.match(`${result.stdout}\n${result.stderr}`, /(?:^|\s)mailpit v1\.31\.0(?:\s|$)/i,
+    `Mailpit v1.31.0 is required (${mailpitCommand})`);
+  return `${result.stdout}`.trim().split('\n')[0];
 }
 
 const seedApplicationFixtures = String.raw`
@@ -143,10 +153,12 @@ type SqliteResult = {
   stderr: string;
 };
 
-export async function startStack({ source = 'capabilities' }: { source?: 'capabilities' | 'backend' } = {}) {
+export async function startStack({ source = 'capabilities' }: { source?: 'capabilities' | 'backend' | 'auth' } = {}) {
   const version = spawnSync(trailCommand, ['--version'], { encoding: 'utf8', env });
   assert.equal(version.status, 0, `pinned TrailBase executable is required on PATH (${trailCommand})`);
   assert.match(version.stdout, /v0\.33\.14-0-g3f965de7.*\nsqlite: 3\.53\.2/);
+  // Verify the required mail sink before creating any owned depot that a failed probe could leak.
+  const mailpitVersion = source === 'auth' ? verifyMailpitVersion() : undefined;
   await mkdir(root, { recursive: true, mode: 0o700 });
   const depot = await mkdtemp(join(root, `${source}-`));
   const marker = randomUUID();
@@ -162,9 +174,18 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   let child: ChildProcess | undefined;
   let log: WriteStream | undefined;
   let exit: Promise<void> | undefined;
+  let mailpitChild: ChildProcess | undefined;
+  let mailpitLog: WriteStream | undefined;
+  let mailpitExit: Promise<void> | undefined;
   let closing: Promise<void> | undefined;
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
+  const smtpPort = source === 'auth' ? await freePort() : undefined;
+  const mailpitHttpPort = source === 'auth' ? await freePort() : undefined;
+  const mailpitBase = mailpitHttpPort === undefined ? undefined : `http://127.0.0.1:${mailpitHttpPort}`;
+  const mailpitDatabase = source === 'auth' ? join(depot, 'mailpit', 'mailpit.db') : undefined;
+  const mailpitLogPath = source === 'auth' ? join(depot, 'mailpit', 'mailpit.log') : undefined;
+  if (mailpitHttpPort === 8025) throw new Error('Owned Mailpit must not use the external Trailhead port 8025');
 
   function cli(args: string[]) {
     const result = spawnSync(trailCommand, ['--depot', depot, '--public-url', base, ...args], { env, encoding: 'utf8' });
@@ -174,6 +195,19 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
       throw new Error(`TrailBase CLI failed; private diagnostics: ${logs}`);
     }
     return result.stdout;
+  }
+
+  async function stopMailpit() {
+    if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) {
+      const owned = mailpitChild;
+      const kill = setTimeout(() => owned.kill('SIGKILL'), 5000);
+      owned.kill('SIGTERM');
+      try { await mailpitExit; } finally { clearTimeout(kill); }
+    }
+    if (mailpitLog) await new Promise<void>(ok => mailpitLog!.end(ok));
+    mailpitChild = undefined;
+    mailpitLog = undefined;
+    mailpitExit = undefined;
   }
 
   async function stop() {
@@ -187,6 +221,38 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     child = undefined;
     log = undefined;
     exit = undefined;
+  }
+
+  async function startMailpit() {
+    assert.ok(mailpitBase && mailpitDatabase && mailpitLogPath && smtpPort,
+      'auth stack Mailpit settings are incomplete');
+    await mkdir(join(depot, 'mailpit'), { recursive: true, mode: 0o700 });
+    mailpitLog = createWriteStream(mailpitLogPath, { flags: 'a', mode: 0o600 });
+    mailpitChild = spawn(mailpitCommand, [
+      '--database', mailpitDatabase,
+      '--listen', `127.0.0.1:${mailpitHttpPort}`,
+      '--smtp', `127.0.0.1:${smtpPort}`,
+      '--disable-version-check',
+      '--quiet',
+    ], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    mailpitChild.stdout!.pipe(mailpitLog, { end: false });
+    mailpitChild.stderr!.pipe(mailpitLog, { end: false });
+    let launchError: Error | undefined;
+    mailpitChild.once('error', error => { launchError = error; });
+    mailpitExit = new Promise(ok => mailpitChild!.once('close', () => ok()));
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      if (launchError || mailpitChild.exitCode !== null || mailpitChild.signalCode !== null) break;
+      try {
+        const ready = await fetch(`${mailpitBase}/readyz`, { signal: AbortSignal.timeout(500) });
+        const info = await fetch(`${mailpitBase}/api/v1/info`, { signal: AbortSignal.timeout(500) });
+        if (ready.ok && info.ok) return;
+      } catch (error) {
+        await appendFile(mailpitLogPath, `Readiness condition: ${String(error)}\n`);
+      }
+      await pollDelay(50);
+    }
+    throw new Error(`Owned Mailpit did not become ready within 20s; private depot: ${depot}`);
   }
 
   async function start() {
@@ -242,11 +308,53 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     }
   }
 
+  async function listMailpitMessages(recipient: string): Promise<Array<{ ID?: string; To?: Array<{ Address?: string }> }>> {
+    assert.ok(mailpitBase, 'auth stack Mailpit HTTP endpoint is unavailable');
+    const response = await fetch(`${mailpitBase}/api/v1/messages?start=0&limit=100`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(response.status, 200, 'auth stack Mailpit message API is unavailable');
+    const payload = await response.json() as { messages?: Array<{ ID?: string; To?: Array<{ Address?: string }> }> };
+    return (payload.messages ?? []).filter(message =>
+      message.To?.some(address => address.Address === recipient));
+  }
+
+  async function mailpitMessage(id: string): Promise<{ HTML?: string; Text?: string }> {
+    assert.ok(mailpitBase, 'auth stack Mailpit HTTP endpoint is unavailable');
+    const response = await fetch(`${mailpitBase}/api/v1/message/${encodeURIComponent(id)}`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(response.status, 200, 'auth stack Mailpit message detail API is unavailable');
+    return await response.json() as { HTML?: string; Text?: string };
+  }
+
+  async function clearMailpitMessages() {
+    assert.ok(mailpitBase, 'auth stack Mailpit HTTP endpoint is unavailable');
+    const response = await fetch(`${mailpitBase}/api/v1/messages`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(2000),
+    });
+    assert.equal(response.status, 200, 'auth stack Mailpit clear API is unavailable');
+  }
+
+  async function waitForMailpitMessages(recipient: string, expected: number) {
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      const messages = await listMailpitMessages(recipient);
+      if (messages.length >= expected) return messages;
+      await pollDelay(50);
+    }
+    const messages = await listMailpitMessages(recipient);
+    throw new Error(`auth stack Mailpit did not receive ${expected} message(s); observed ${messages.length}`);
+  }
+
   function close(): Promise<void> {
     closing ??= (async () => {
       await stop();
+      await stopMailpit();
       process.off('SIGTERM', onSignal);
       process.off('SIGINT', onSignal);
+      process.off('SIGHUP', onSignal);
       await removeOwnedDepot(depot, marker);
     })();
     return closing;
@@ -254,17 +362,25 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   function onSignal() { void close().finally(() => process.exit(1)); }
   process.once('SIGTERM', onSignal);
   process.once('SIGINT', onSignal);
+  process.once('SIGHUP', onSignal);
   let deviceUserId: string | undefined;
   const profileIds: string[] = [];
   try {
     const configPath = source === 'capabilities' ? 'tests/backend/fixture/config.textproto' : 'backend/config/development.textproto';
     const migrationPath = source === 'capabilities' ? 'tests/backend/fixture/migrations' : 'backend/migrations';
-    const config = (await readFile(configPath, 'utf8'))
+    let config = (await readFile(configPath, 'utf8'))
       .replace('__ITEM_API__', apiName).replace('__AUDIT_API__', auditName).replace('__READY_API__', readyName);
+    if (source === 'auth') {
+      config = config
+        .replace(/email\s*\{\s*\}/, `email {\n  smtp_host: "127.0.0.1"\n  smtp_port: ${smtpPort}\n  smtp_encryption: SMTP_ENCRYPTION_NONE\n  sender_name: "Trail Party test"\n  sender_address: "trail-party-test@example.invalid"\n}`)
+        .replace(/server\s*\{\s*application_name:\s*"Trail Party development"\s*\}/,
+          `server { application_name: "Trail Party test" site_url: "${base}" }`);
+    }
     await writeFile(join(depot, 'config.textproto'), config, { mode: 0o600 });
     await cp(migrationPath, join(depot, 'migrations'), { recursive: true });
     await mkdir(join(depot, 'wasm'), { recursive: true });
     await cp('.artifacts/p01-t2/component/probe.wasm', join(depot, 'wasm', 'probe.wasm'));
+    if (source === 'auth') await startMailpit();
     await start();
     // v0.33.14 user-add SQL references the removed verified column. Use the supported
     // admin API for synthetic baseline accounts; never parse/log bootstrap passwords.
@@ -328,6 +444,18 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     readyName,
     accounts,
     profileIds,
+    mailpit: source === 'auth' ? {
+      base: mailpitBase!,
+      smtpPort: smtpPort!,
+      httpPort: mailpitHttpPort!,
+      database: mailpitDatabase!,
+      logPath: mailpitLogPath!,
+      listMessages: listMailpitMessages,
+      waitForMessages: waitForMailpitMessages,
+      message: mailpitMessage,
+      clearMessages: clearMailpitMessages,
+      version: mailpitVersion!,
+    } : undefined,
     deviceUserId,
     close,
     restart: async () => { await stop(); await start(); },

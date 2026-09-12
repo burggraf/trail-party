@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P02.T2 acceptance-first auth/profile red checks against the accepted P02.T1 schema; then implement real local-mail auth and profile flows.",
+  "next_action": "P02.T2 implement the smallest real local-mail auth/profile and validated return-to-origin flows; first resolve the pinned native reset-token reuse boundary before claiming C2.",
   "phases": [
     {
       "id": "P00",
@@ -145,7 +145,7 @@
         {
           "id": "P02.T2",
           "title": "Implement auth/profile flows",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "id": "P02.T3",
