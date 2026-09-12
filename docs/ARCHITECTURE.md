@@ -51,7 +51,12 @@ This contract replaces the preliminary table sketch. P02 remains pending/unstart
 
 ### Common column, FK and generated-contract rules
 
-All tables are SQLite `STRICT`. The notation below is exhaustive: `T=TEXT`, `I=INTEGER`, `R=REAL`, `U=BLOB` containing a 16-byte UUID. Every column is `NOT NULL` with **no default** unless `?` (nullable, SQL default NULL), `=value`, `PK`, or a shared group explicitly says otherwise. `U PK` is NOT NULL, defaults to `uuid_v7()`, and has `CHECK(is_uuid_v7(id))`; a shared/FK primary key has no UUID default. User IDs are the native `_user.id` BLOB, never an email/role. UUID JSON is padded URL-safe Base64, not UUID text. Questions use positive integer PKs, not UUID functions.
+All tables are SQLite `STRICT`. The notation below is exhaustive: `T=TEXT`, `I=INTEGER`, `R=REAL`, `U=BLOB` containing a 16-byte UUID; `U_app` and `U_native` refine `U`. Every column is `NOT NULL` with **no default** unless `?` (nullable, SQL default NULL), `=value`, `PK`, or a shared group explicitly says otherwise.
+
+- Application-generated `U_app PK` is NOT NULL, defaults to `uuid_v7()`, and has `CHECK(is_uuid_v7(id))` (use the actual PK column name). Shared/FK application primary keys retain the UUIDv7 check but have no UUID default.
+- Inherited `U_native PK` is NOT NULL, has no default, and uses `CHECK(is_uuid(id))` with an FK to `_user.id`. It accepts the pinned native UUIDv4 default (`uuid_v4()`), not a UUIDv7-only restriction. Never alter the built-in auth schema to fit application IDs.
+
+User IDs are inherited native `_user.id` BLOBs, never application-generated IDs or an email/role. UUID JSON is padded URL-safe Base64, not UUID text. Questions use positive integer PKs, not UUID functions.
 
 Shared group **M** expands to `created_at I=unixepoch()`, `updated_at I=unixepoch()`, `version I=0 CHECK(version>=0)`. Shared group **A** expands to `created_at I=unixepoch()` only. All server times are Unix seconds, `CHECK(time>=0)` when non-null. Clients cannot set these columns. Successful logical mutations set updated_at from server time and increment version exactly once using expected-version CAS in the same transaction; timestamp is not an ordering token. SQL immutability guards reject PK/created/ownership changes. Handler writes own version/time increments (no second increment from a timestamp trigger); direct client writes are disabled. Maintenance must obey the same invariants. Integer booleans have `CHECK(value IN (0,1))`; generated TS must not silently assume boolean serialization until proven.
 
@@ -65,8 +70,10 @@ Application JSON columns use `CHECK(jsonschema_matches('<schema>', column))`, no
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK` (no default; FK `_user.id`), `display_name T`, M | `length(trim(display_name)) BETWEEN 1 AND 80`; server binds id to verified caller. ON DELETE CASCADE from user; id immutable. |
+| `id U_native PK` (no default; `CHECK(is_uuid(id))`; FK `_user.id`), `display_name T`, M | `length(trim(display_name)) BETWEEN 1 AND 80`; server binds id to verified caller. ON DELETE CASCADE from user; id immutable. |
 | `avatar_file T?`, `avatar_mime T?`, `avatar_bytes I?`, `avatar_revision I=0` | All three nullable fields absent together or present together; revision >=0, increment on replace/remove. MIME is image/png, image/jpeg or image/webp; bytes BETWEEN 1 AND 5242880. |
+
+Create/provision the native account before inserting its profile; inherit that existing ID unchanged. Profile creation rejects malformed IDs, well-formed foreign IDs absent from `_user`, and mismatched bindings to another existing user; FK existence does not replace verified-caller authorization.
 
 `avatar_file` is private TrailBase native single-file metadata: `jsonschema('std.FileUpload', avatar_file)` (exact pinned registry name/extra validation arguments must be confirmed by `avatar-boundary`, not invented). Observed SDK FileUpload shape: required `objectstore_path:string`; optional nullable strings `filename`, `content_type`, `mime_type`. No caller-provided path/metadata accepted. Server validates actual bytes, MIME and size, rejects SVG/HTML, malformed images and excessive decoded dimensions (maximum 4096 per axis), and strips identifying metadata when supported by the proven image path; unsupported validation is a failing T2 gate, never client-only acceptance. Native file route/cleanup and WASM file integration remain first-red proof obligations.
 
@@ -85,7 +92,7 @@ No FKs, application JSON or update version. P03 owns offline source-safe inserti
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `host_id U FK _user.id`, `join_code T`, `title T`, `location T=''`, `starts_at I?`, `duration_minutes I=120`, M | host immutable and verified on server; join_code exactly six uppercase ASCII letters/digits UNIQUE; title trimmed length 1..120, location <=240, duration 1..1440. Server allocates collision-checked code. |
+| `id U_app PK`, `host_id U FK _user.id`, `join_code T`, `title T`, `location T=''`, `starts_at I?`, `duration_minutes I=120`, M | host immutable and verified on server; join_code exactly six uppercase ASCII letters/digits UNIQUE; title trimmed length 1..120, location <=240, duration 1..1440. Server allocates collision-checked code. |
 | `lifecycle T='setup'`, `roster_locked_at I?`, `roster_version I=0`, `deleted_at I?`, `completed_at I?` | lifecycle in setup/ready/in-progress/completed; roster_version >=0. in-progress/completed requires non-null permanent roster_locked_at; completed iff completed_at non-null. Cannot clear lock or regress lifecycle through Back. |
 | `timers T` default all seven keys null, `auto_reveal I=0` | Closed JSON object: game_start, round_start, question, answer, round_end, game_end, thanks, each required integer 0..86400 or null. Null/zero disables. |
 
@@ -95,7 +102,7 @@ Indexes: UNIQUE(id,host_id), UNIQUE(join_code), (host_id,deleted_at,lifecycle,st
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `game_id U FK games.id`, `ordinal I`, `title T`, `question_count I=5`, `categories T='[]'`, `difficulty T?`, `level_min R?`, `level_max R?`, `deleted_at I?`, M | ordinal >=1, title trimmed length 1..120, question_count 1..100. JSON categories array of unique strings, maxItems 100 (empty means all); difficulty NULL or easy/medium/hard; min<=max when both set. Game immutable. |
+| `id U_app PK`, `game_id U FK games.id`, `ordinal I`, `title T`, `question_count I=5`, `categories T='[]'`, `difficulty T?`, `level_min R?`, `level_max R?`, `deleted_at I?`, M | ordinal >=1, title trimmed length 1..120, question_count 1..100. JSON categories array of unique strings, maxItems 100 (empty means all); difficulty NULL or easy/medium/hard; min<=max when both set. Game immutable. |
 
 Indexes: UNIQUE(id,game_id); UNIQUE(game_id,ordinal) WHERE deleted_at IS NULL; (game_id,deleted_at). RESTRICT protects assignments/history. Retention: soft-delete, retain referenced rows. Server-only base, no direct Record/expand/SSE in P02; safe current round title/ordinal is copied to public state in later transitions. P05 owns setup CRUD/reorder transaction; no P02 reorder endpoint.
 
@@ -103,7 +110,7 @@ Indexes: UNIQUE(id,game_id); UNIQUE(game_id,ordinal) WHERE deleted_at IS NULL; (
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `game_id U FK games.id`, `name T`, `deleted_at I?`, M | name trimmed length 1..80; game immutable. No team creation/deletion after roster lock; no reassignment. |
+| `id U_app PK`, `game_id U FK games.id`, `name T`, `deleted_at I?`, M | name trimmed length 1..80; game immutable. No team creation/deletion after roster lock; no reassignment. |
 
 Indexes: UNIQUE(id,game_id); UNIQUE(game_id,name) WHERE deleted_at IS NULL (binary exact-name comparison); (game_id,deleted_at). Retention: soft-delete, RESTRICT from accepted attribution. Generated internal shape as above; read-only same-name Record API selects id/game_id/name/version/updated_at only, no direct C/U/D or expand; game-scoped SSE. Team-name editing after lock may be host-authorized in P06; this never changes membership or accepted team identity.
 
@@ -111,7 +118,7 @@ Indexes: UNIQUE(id,game_id); UNIQUE(game_id,name) WHERE deleted_at IS NULL (bina
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `game_id U FK games.id`, `user_id U FK profiles.id`, `team_id U?`, `left_at I?`, M | UNIQUE(game_id,user_id) even after leave; immutable game/user identity. Composite (team_id,game_id) FK game_teams(id,game_id), NULL team permitted before selection only. |
+| `id U_app PK`, `game_id U FK games.id`, `user_id U FK profiles.id`, `team_id U?`, `left_at I?`, M | UNIQUE(game_id,user_id) even after leave; immutable game/user identity. Composite (team_id,game_id) FK game_teams(id,game_id), NULL team permitted before selection only. |
 
 Indexes: UNIQUE(id,game_id), UNIQUE(id,game_id,team_id); (game_id,team_id,user_id); (user_id,left_at,game_id). Same-game FK alone is insufficient: SQL guards/handlers reject a deleted team, first join unless ready/game-start, and every team change, new member or row deletion after permanent roster lock, even if presentation returns to game-start. Pre-lock membership changes bump roster_version with the game transaction. Leaving after lock affects left_at/presence only; registered eligible teams stay fixed, rejoin uses this same row/team. No arbitrary role column. Retention: row for game lifetime, RESTRICT. Read-only same-name API selects id/game_id/user_id/team_id/left_at/version/updated_at; scoped SSE, no expand or direct mutation. Full membership commands P06, accepted attribution P07.
 
@@ -119,7 +126,7 @@ Indexes: UNIQUE(id,game_id), UNIQUE(id,game_id,team_id); (game_id,team_id,user_i
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `game_id U FK games.id`, `round_id U`, `ordinal I`, `question_text T`, `choices T`, `retired_at I?`, A | Composite (round_id,game_id) FK rounds(id,game_id); ordinal >=1. choices is a closed object with required A/B/C/D string values, no default. |
+| `id U_app PK`, `game_id U FK games.id`, `round_id U`, `ordinal I`, `question_text T`, `choices T`, `retired_at I?`, A | Composite (round_id,game_id) FK rounds(id,game_id); ordinal >=1. choices is a closed object with required A/B/C/D string values, no default. |
 
 This is **public-shaped assignment content**, NOT the bank or a stored answer key: no source question ID, source order, correct label, permutation, grade or score columns. Indexes: UNIQUE(id,game_id), UNIQUE(id,game_id,round_id); UNIQUE(round_id,ordinal) WHERE retired_at IS NULL; (game_id,round_id,retired_at). Retain retired assignments; immutable content/order once accepted, recycle creates a new identity and retires the old one. No direct client collection/expand/SSE in P02 (future question schedules are private too). P07 publishes only the current text/choices through game_state_public. The id also references assignment_private(assignment_id) and used_question_history(assignment_id), each `ON UPDATE RESTRICT ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED`. Their UNIQUE/PK constraints make these one-to-one links. These reverse FKs require both partners by commit, including for retired assignments; insert the circular references in one transaction. Test this exact pinned SQLite contract, not a handler-only promise.
 
@@ -127,7 +134,7 @@ This is **public-shaped assignment content**, NOT the bank or a stored answer ke
 
 | Columns | Constraints / ownership |
 |---|---|
-| `assignment_id U PK FK game_questions.id` (no default), `question_id I FK questions.id`, `permutation T`, `correct_label T`, A | permutation: array, exactly 4 unique integers 0..3 mapping displayed A/B/C/D to source a/b/c/d. correct_label in A/B/C/D; transaction/trigger verifies it indexes the source-a position. |
+| `assignment_id U_app PK FK game_questions.id` (no default), `question_id I FK questions.id`, `permutation T`, `correct_label T`, A | permutation: array, exactly 4 unique integers 0..3 mapping displayed A/B/C/D to source a/b/c/d. correct_label in A/B/C/D; transaction/trigger verifies it indexes the source-a position. |
 
 One-to-one private storage; assignment creation must insert both halves and history in one transaction, never leave only a public half. Indexes: (question_id). Immutable after assignment, RESTRICT deletion, same retention as used history. Server-internal generated shape only. **No direct client collection**, expand or SSE; even host preview later uses an authorized command, never a base API. P05 owns assignment allocation; P07 owns use, not creation of new shuffles on reload.
 
@@ -135,7 +142,7 @@ One-to-one private storage; assignment creation must insert both halves and hist
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK FK games.id` (no default), `phase T='game-start'`, `round_id U?`, `assignment_id U?`, `round_title T?`, `round_ordinal I?`, `question_ordinal I?`, `question_text T?`, `choices T?`, M | phase in game-start/round-start/round-play/round-end/game-end/thanks/lobby. Nullable composite (round_id,id) -> rounds(id,game_id), (assignment_id,id,round_id) -> game_questions(id,game_id,round_id). Assignment requires round; question fields/choices all present only in round-play; round phases require round title/ordinal. Ordinals >=1. Choices schema exactly as game_questions. |
+| `id U_app PK FK games.id` (no default), `phase T='game-start'`, `round_id U?`, `assignment_id U?`, `round_title T?`, `round_ordinal I?`, `question_ordinal I?`, `question_text T?`, `choices T?`, M | phase in game-start/round-start/round-play/round-end/game-end/thanks/lobby. Nullable composite (round_id,id) -> rounds(id,game_id), (assignment_id,id,round_id) -> game_questions(id,game_id,round_id). Assignment requires round; question fields/choices all present only in round-play; round phases require round title/ordinal. Ordinals >=1. Choices schema exactly as game_questions. |
 | `revealed I=0`, `deadline_at I?`, `paused_remaining_seconds I?`, `all_answered_at I?` | paused remainder >=0; deadline and paused remainder cannot coexist. revealed=1 only in round-play. No key/grade/score JSON slot. |
 
 Outside round-start/round-play/round-end, round_id/title/ordinal are all NULL; outside round-play, assignment_id/question fields/choices are all NULL and revealed=0. Within round-play all round/assignment/question fields are present. This prevents partial nullable composite keys from bypassing scope.
@@ -146,7 +153,7 @@ Indexes: PK and FK indexes. Server-only writes; read-only same-name API emits ex
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `game_id U FK games.id`, `assignment_id U`, `team_id U`, `accepted_player_id U`, `displayed_label T`, `accepted_state_version I`, `operation_id T`, A | FKs (assignment_id,game_id) -> game_questions(id,game_id); (team_id,game_id) -> game_teams(id,game_id); (accepted_player_id,game_id,team_id) -> game_players(id,game_id,team_id). Label A/B/C/D, state version >=0, operation_id canonical UUIDv7 text. |
+| `id U_app PK`, `game_id U FK games.id`, `assignment_id U`, `team_id U`, `accepted_player_id U`, `displayed_label T`, `accepted_state_version I`, `operation_id T`, A | FKs (assignment_id,game_id) -> game_questions(id,game_id); (team_id,game_id) -> game_teams(id,game_id); (accepted_player_id,game_id,team_id) -> game_players(id,game_id,team_id). Label A/B/C/D, state version >=0, operation_id canonical UUIDv7 text. |
 
 Indexes: UNIQUE(assignment_id,team_id), UNIQUE(accepted_player_id,operation_id), (game_id,team_id,assignment_id). All rows append-only, RESTRICT. No translated source label, correctness or points here. P07 derives team/player/game from current authenticated membership, accepts first valid only, and stores immutable attribution in the same transaction; invalid/stale attempts cannot reserve a slot. Accepted choice/attribution is potentially public **to teammates and game host**, not opponents before reveal. No direct Record/expand/SSE in P02; P07 will add scoped output after tests. Retention: game lifetime, no automatic purge.
 
@@ -154,7 +161,7 @@ Indexes: UNIQUE(assignment_id,team_id), UNIQUE(accepted_player_id,operation_id),
 
 | Columns | Constraints / ownership |
 |---|---|
-| `answer_id U PK FK game_answers.id` (no default), `source_label T`, `is_correct I`, `points I`, `graded_state_version I`, `operation_id T`, A | source_label a/b/c/d, boolean is_correct, points 0 or 1 with points=is_correct, graded version >=0, operation UUIDv7 text. |
+| `answer_id U_app PK FK game_answers.id` (no default), `source_label T`, `is_correct I`, `points I`, `graded_state_version I`, `operation_id T`, A | source_label a/b/c/d, boolean is_correct, points 0 or 1 with points=is_correct, graded version >=0, operation UUIDv7 text. |
 
 Immutable one-to-one grade, RESTRICT; no update on repeated reveal. Aggregate round/final scores are derived with SUM(points) over accepted answers, **no score table or incrementing client total**. Indexes: PK sufficient; query joins use answer indexes. No direct client collection, expand or SSE; all internal select/insert contracts only, update forbidden. P07 grading/reveal transaction must never score twice; retention equals answers. P02 seeds synthetic grades only to prove denial.
 
@@ -170,7 +177,7 @@ Indexes: UNIQUE(assignment_id), UNIQUE(host_id,operation_id,question_id), (host_
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK`, `device_user_id U FK _user.id`, M | UNIQUE(device_user_id); identity immutable. This FK alone is ON DELETE CASCADE so stale anonymous cleanup removes scope; audit retains non-secret actor snapshots. Enroll checks actual anonymous auth state, not merely email=null in a client token. |
+| `id U_app PK`, `device_user_id U FK _user.id`, M | UNIQUE(device_user_id); identity immutable. This FK alone is ON DELETE CASCADE so stale anonymous cleanup removes scope; audit retains non-secret actor snapshots. Enroll checks actual anonymous auth state, not merely email=null in a client token. |
 | `code_hash BLOB?`, `code_epoch I=0`, `code_created_at I?`, `expires_at I?`, `failed_attempts I=0`, `attempt_window_at I?`, `blocked_until I?` | Hash exactly 32 bytes when present; hash/creation/expiry all present or all NULL, expiry>creation; epoch/attempts>=0. Server HMAC-SHA256 over six-digit code using an out-of-Git pepper; not unsalted SHA of a million-value space. |
 | `claim_version I=0`, `host_id U?`, `game_id U?`, `claimed_at I?`, `released_at I?`, `last_seen_at I=unixepoch()`, `revoked_at I?`, `settings T='{"theme":"dark","text_scale":1}'` | host/game/claimed_at all-null or all-present; (game_id,host_id) FK games(id,host_id), claim_version>=0. Closed settings object: theme dark/light; text_scale number 0.5..2. Revoked device cannot be claimed. |
 
@@ -190,7 +197,7 @@ Indexes: (updated_at). Needed because attempts against nonexistent codes have no
 
 | Columns | Constraints / ownership |
 |---|---|
-| `id U PK` (no default), `game_id U FK games.id`, `last_seen_at I=unixepoch()`, `visibility T='visible'`, `version I=0` | Composite (id,game_id) -> game_players(id,game_id) ON DELETE CASCADE; this is the member FK. visibility visible/hidden, version>=0. Membership identity server-bound, heartbeat time never caller-supplied. |
+| `id U_app PK` (no default), `game_id U FK games.id`, `last_seen_at I=unixepoch()`, `visibility T='visible'`, `version I=0` | Composite (id,game_id) -> game_players(id,game_id) ON DELETE CASCADE; this is the member FK. visibility visible/hidden, version>=0. Membership identity server-bound, heartbeat time never caller-supplied. |
 
 Indexes: (game_id,last_seen_at). No sensitive session/browser identifier; one row per member so duplicate tabs coalesce. Future P06 heartbeat no more often than 15 seconds, online only within 45 seconds of server time and not hidden/left; no unload dependency. Retention: remove stale rows after 24 hours or membership purge, not membership/history. Generated contracts as listed; read-only same-name Record/filtered SSE to current game scope, no expand/direct mutations. P02 schema/fixture only.
 
