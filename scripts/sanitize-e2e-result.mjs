@@ -10,12 +10,16 @@ if (!inputPath || !outputPath || !['induced', 'green'].includes(mode)) {
 const report = JSON.parse(await readFile(inputPath, 'utf8'));
 const tests = [];
 const traces = [];
+const skipped = [];
 
 async function visit(suite, inheritedFile = '') {
   const file = suite.file ?? inheritedFile;
   for (const spec of suite.specs ?? []) {
     for (const test of spec.tests ?? []) {
+      const expectedSkip = test.expectedStatus === 'skipped';
+      if (test.status === 'skipped' && !expectedSkip) skipped.push(`${spec.title} (${test.projectName})`);
       for (const result of test.results ?? []) {
+        if (result.status === 'skipped' && !expectedSkip) skipped.push(`${spec.title} (${test.projectName})`);
         const attachments = (result.attachments ?? []).map(attachment => attachment.name);
         const browserVersion = (result.annotations ?? test.annotations ?? [])
           .find(annotation => annotation.type === 'browser-version')?.description;
@@ -48,6 +52,7 @@ async function visit(suite, inheritedFile = '') {
 }
 
 for (const suite of report.suites ?? []) await visit(suite);
+if (skipped.length > 0) throw new Error(`Unexpected skipped Playwright tests: ${skipped.join(', ')}`);
 if (tests.length === 0) throw new Error('Playwright result did not contain a test');
 if (mode === 'induced' && traces.length === 0) throw new Error('induced result did not contain a trace');
 

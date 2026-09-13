@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { assertSafeTestUrl, cleanupOwnedStack, removeOwnedDepot, stopDirectProcess, waitForOwnedResourcesToStop } from './test-stack.mjs';
+import { assertSafeTestUrl, cleanupOwnedStack, removeOwnedDepot, startTestStack, stopDirectProcess, waitForOwnedResourcesToStop } from './test-stack.mjs';
 
 test('test-stack refuses foreign depot cleanup and permits only its marker owner', async () => {
   const root = resolve('.local/test-runs');
@@ -19,6 +19,28 @@ test('test-stack refuses foreign depot cleanup and permits only its marker owner
   await removeOwnedDepot(depot, owner);
   await assert.rejects(() => readFile(depot), /ENOENT/u);
   await rm(depot, { recursive: true, force: true });
+});
+
+test('test-stack removes a fresh depot when setup fails after creation', async () => {
+  const root = resolve('.local/test-runs');
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  const depotNames = async () => (await readdir(root, { withFileTypes: true }))
+    .filter(entry => entry.isDirectory() && entry.name.startsWith('e2e-'))
+    .map(entry => entry.name)
+    .sort();
+  const before = await depotNames();
+  const previous = process.env.TRAIL_PARTY_E2E_FAIL_AFTER_DEPOT;
+  process.env.TRAIL_PARTY_E2E_FAIL_AFTER_DEPOT = '1';
+  try {
+    await assert.rejects(
+      startTestStack(),
+      /controlled P04 setup failure after depot creation/u,
+    );
+  } finally {
+    if (previous === undefined) delete process.env.TRAIL_PARTY_E2E_FAIL_AFTER_DEPOT;
+    else process.env.TRAIL_PARTY_E2E_FAIL_AFTER_DEPOT = previous;
+  }
+  assert.deepEqual(await depotNames(), before);
 });
 
 test('test-stack cleanup attempts every sibling and can be retried after one stop fails', async () => {

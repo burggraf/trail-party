@@ -343,10 +343,10 @@ async function provisionAccounts(backend, accounts, marker, depot, logPath) {
 }
 
 export async function startTestStack() {
-  checkVersion();
+  const forcedSetupFailure = process.env.TRAIL_PARTY_E2E_FAIL_AFTER_DEPOT === '1';
+  if (!forcedSetupFailure) checkVersion();
   await mkdir(testRoot, { recursive: true, mode: 0o700 });
   await mkdir(artifactRoot, { recursive: true, mode: 0o700 });
-  await portFree(4173);
   const depot = await mkdtemp(join(testRoot, 'e2e-'));
   const marker = randomUUID();
   const owner = `trail-party-e2e-v1\n${repository}\n${marker}\n`;
@@ -366,6 +366,7 @@ export async function startTestStack() {
   let signup;
   try {
     await writeFile(join(depot, '.owner'), owner, { mode: 0o600 });
+    if (forcedSetupFailure) fail('controlled P04 setup failure after depot creation');
     await mkdir(logDir, { recursive: true, mode: 0o700 });
     await portFree(4173);
     backendPort = await freePort();
