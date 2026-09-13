@@ -72,9 +72,19 @@ test('authorized profile update crosses independent contexts through real SSE', 
 });
 
 test('display actor remains a separate context and does not inherit browser auth', async ({ browser, stack }) => {
+  const actorContext = await browser.newContext({ baseURL: 'http://127.0.0.1:4173' });
+  const actorPage = await actorContext.newPage();
   const display = await browser.newContext({ baseURL: 'http://127.0.0.1:4173' });
   const page = await display.newPage();
   try {
+    await signIn(actorPage, stack.accounts.H);
+    expect(await actorPage.evaluate(() => sessionStorage.getItem('trail-party:auth-tokens'))).not.toBeNull();
+
+    const displayBeforeNavigation = await display.storageState();
+    expect(displayBeforeNavigation.cookies).toEqual([]);
+    expect(displayBeforeNavigation.origins).toEqual([]);
+    expect(await display.cookies()).toEqual([]);
+
     await page.goto('/display');
     await expect(page.getByRole('heading', { name: 'Trail Party Display' })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('trail-party:auth-tokens'))).toBeNull();
@@ -84,5 +94,6 @@ test('display actor remains a separate context and does not inherit browser auth
     expect(stack.backend).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/u);
   } finally {
     await display.close();
+    await actorContext.close();
   }
 });

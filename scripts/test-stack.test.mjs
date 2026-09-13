@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import test from 'node:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { assertSafeTestUrl, cleanupOwnedStack, removeOwnedDepot, waitForOwnedResourcesToStop } from './test-stack.mjs';
+import { assertSafeTestUrl, cleanupOwnedStack, removeOwnedDepot, stopDirectProcess, waitForOwnedResourcesToStop } from './test-stack.mjs';
 
 test('test-stack refuses foreign depot cleanup and permits only its marker owner', async () => {
   const root = resolve('.local/test-runs');
@@ -46,6 +46,37 @@ test('test-stack cleanup attempts every sibling and can be retried after one sto
   calls.length = 0;
   await cleanup();
   assert.deepEqual(calls, ['first-child', 'second-child', 'mailpit', 'resources', 'logs', 'depot']);
+});
+
+test('test-stack escalates a direct child that ignores SIGTERM', async () => {
+  const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); console.log('ready'); setInterval(() => {}, 1000);"], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  let closed;
+  try {
+    await new Promise((resolvePromise, reject) => {
+      const timer = setTimeout(() => reject(new Error('direct-child safety process did not start')), 2000);
+      child.stdout.on('data', chunk => {
+        if (chunk.toString().includes('ready')) {
+          clearTimeout(timer);
+          resolvePromise();
+        }
+      });
+      child.once('error', error => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+    closed = new Promise(resolvePromise => child.once('close', resolvePromise));
+    await stopDirectProcess(child, closed, 25);
+    assert.equal(child.signalCode, 'SIGKILL');
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      if (!closed) closed = new Promise(resolvePromise => child.once('close', resolvePromise));
+      await closed;
+    }
+  }
 });
 
 test('test-stack rejects production and external Mailpit targets', () => {

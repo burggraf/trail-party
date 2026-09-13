@@ -113,6 +113,17 @@ function signalGroup(pid, signal) {
   catch (error) { if (error?.code !== 'ESRCH') throw error; }
 }
 
+async function waitForChildClosed(child, closed, timeoutMs = 5000) {
+  if (!closed) return;
+  let timer;
+  await Promise.race([
+    closed,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Owned child ${child.pid} did not close`)), timeoutMs);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function stopProcess(child, closed) {
   if (!child) return;
   if (child.exitCode === null && child.signalCode === null) signalGroup(child.pid, 'SIGTERM');
@@ -121,14 +132,18 @@ async function stopProcess(child, closed) {
     await new Promise(resolvePromise => setTimeout(resolvePromise, 25));
   }
   if (child.exitCode === null && child.signalCode === null) signalGroup(child.pid, 'SIGKILL');
-  if (!closed) return;
-  let timer;
-  await Promise.race([
-    closed,
-    new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`Owned child ${child.pid} did not close`)), 5000);
-    }),
-  ]).finally(() => clearTimeout(timer));
+  await waitForChildClosed(child, closed);
+}
+
+export async function stopDirectProcess(child, closed, timeoutMs = 5000) {
+  if (!child) return;
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  const deadline = Date.now() + timeoutMs;
+  while (child.exitCode === null && child.signalCode === null && Date.now() < deadline) {
+    await new Promise(resolvePromise => setTimeout(resolvePromise, 25));
+  }
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  await waitForChildClosed(child, closed, timeoutMs);
 }
 
 export async function cleanupOwnedStack({ stopChildren, stopMailpit, waitForResources, closeLogs, removeDepot }) {
@@ -356,10 +371,7 @@ export async function startTestStack() {
           () => stopProcess(vite, viteClosed),
           () => stopProcess(trail, trailClosed),
         ],
-        stopMailpit: async () => {
-          if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
-          if (mailpitClosed) await mailpitClosed;
-        },
+        stopMailpit: () => stopDirectProcess(mailpitChild, mailpitClosed),
         waitForResources: () => waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath),
         closeLogs: async () => {
           let firstError;
