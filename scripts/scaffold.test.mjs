@@ -6,6 +6,9 @@ import test from 'node:test';
 test('browser checks use the documented Chrome channel with no acceptance retries', () => {
   const config = readFileSync('playwright.shell.config.ts', 'utf8');
   assert.match(config, /channel:\s*['"]chrome['"]/);
+  const e2eConfig = readFileSync('playwright.config.ts', 'utf8');
+  assert.match(e2eConfig, /PLAYWRIGHT_CHROME_EXECUTABLE/);
+  assert.match(e2eConfig, /launchOptions:\s*\{\s*executablePath/);
   assert.match(config, /retries:\s*0/);
   assert.match(config, /reuseExistingServer:\s*false/);
   assert.match(readFileSync('docs/TESTING.md', 'utf8'), /channel: 'chrome'/);

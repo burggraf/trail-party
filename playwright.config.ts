@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 const chromeExecutable = process.env.PLAYWRIGHT_CHROME_EXECUTABLE?.trim();
-const chromiumUse = chromeExecutable ? { executablePath: chromeExecutable } : { channel: 'chrome' as const };
+const chromiumUse = chromeExecutable
+  ? { launchOptions: { executablePath: chromeExecutable } }
+  : { channel: 'chrome' as const };
 
 export default defineConfig({
   testDir: './tests/e2e',
