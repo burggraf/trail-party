@@ -7,6 +7,7 @@ const MAX_PROFILE_AGE_SECONDS = 24 * 60 * 60;
 const MAX_PROFILE_FUTURE_SECONDS = 60;
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const PROFILE_FIELDS = ['display_name', 'operation_id', 'issued_at'];
+const PROFILE_UPDATE_FIELDS = ['display_name', 'operation_id', 'issued_at', 'expected_version'];
 const encoder = new TextEncoder();
 
 function invalidCommand(): never {
@@ -59,6 +60,48 @@ function hasControlCharacters(value: string): boolean {
     if ((code >= 0 && code <= 0x1f) || (code >= 0x7f && code <= 0x9f)) return true;
   }
   return false;
+}
+
+function parseUpdateCommand(req: HttpRequest): { displayName: string; operationId: string; issuedAt: number; expectedVersion: number } {
+  const body = req.body();
+  if (!body || body.byteLength > MAX_BODY_BYTES) invalidCommand();
+
+  let input: unknown;
+  try {
+    input = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body));
+  } catch {
+    invalidCommand();
+  }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) invalidCommand();
+  const value = input as Record<string, unknown>;
+  if (Object.keys(value).length !== PROFILE_UPDATE_FIELDS.length
+      || PROFILE_UPDATE_FIELDS.some(field => !Object.prototype.hasOwnProperty.call(value, field))) {
+    invalidCommand();
+  }
+
+  const displayName = value.display_name;
+  const operationId = value.operation_id;
+  const issuedAt = value.issued_at;
+  const expectedVersion = value.expected_version;
+  if (typeof displayName !== 'string' || typeof operationId !== 'string'
+      || typeof issuedAt !== 'number' || !Number.isSafeInteger(issuedAt) || issuedAt < 0
+      || typeof expectedVersion !== 'number' || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0
+      || hasControlCharacters(displayName)) {
+    invalidCommand();
+  }
+  const normalizedName = displayName.trim();
+  if (Array.from(normalizedName).length < 1 || Array.from(normalizedName).length > 80) invalidCommand();
+  if (!UUID_V7.test(operationId)) invalidCommand();
+
+  const timestampMilliseconds = Number.parseInt(`${operationId.slice(0, 8)}${operationId.slice(9, 13)}`, 16);
+  const operationSeconds = Math.floor(timestampMilliseconds / 1000);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (operationSeconds !== issuedAt
+      || issuedAt < nowSeconds - MAX_PROFILE_AGE_SECONDS
+      || issuedAt > nowSeconds + MAX_PROFILE_FUTURE_SECONDS) {
+    invalidCommand();
+  }
+  return { displayName: normalizedName, operationId, issuedAt, expectedVersion };
 }
 
 function rotateRight(value: number, amount: number): number {
@@ -196,8 +239,18 @@ function auditHmacKey(tx: Transaction): Uint8Array {
   return key;
 }
 
-function requestHash(tx: Transaction, userId: string, displayName: string, operationId: string, issuedAt: number): Uint8Array {
-  const canonical = encoder.encode(`trail-party/profile/create\u0000${userId}\u0000${displayName}\u0000${operationId}\u0000${issuedAt}`);
+function requestHash(
+  tx: Transaction,
+  userId: string,
+  action: string,
+  displayName: string,
+  operationId: string,
+  issuedAt: number,
+  expectedVersion?: number,
+): Uint8Array {
+  const canonical = encoder.encode(action === 'create'
+    ? `trail-party/profile/create\u0000${userId}\u0000${displayName}\u0000${operationId}\u0000${issuedAt}`
+    : `trail-party/profile/update\u0000${userId}\u0000${displayName}\u0000${operationId}\u0000${issuedAt}\u0000${expectedVersion}`);
   return hmacSha256(auditHmacKey(tx), canonical);
 }
 
@@ -247,7 +300,7 @@ function createProfile(req: HttpRequest): HttpResponse {
   const tx = new Transaction();
   let committed = false;
   try {
-    const hash = requestHash(tx, user.id, command.displayName, command.operationId, command.issuedAt);
+    const hash = requestHash(tx, user.id, 'create', command.displayName, command.operationId, command.issuedAt);
     const verified = tx.query(
       'SELECT id FROM _user WHERE id = base64_url_safe(?1) AND email IS NOT NULL AND unverified_email IS NULL',
       [user.id],
@@ -290,6 +343,64 @@ function createProfile(req: HttpRequest): HttpResponse {
   }
 }
 
+function updateProfile(req: HttpRequest): HttpResponse {
+  const user = req.user();
+  if (!user) throw new HttpError(401, 'Authentication required');
+  const command = parseUpdateCommand(req);
+  const tx = new Transaction();
+  let committed = false;
+  try {
+    const hash = requestHash(
+      tx, user.id, 'update', command.displayName, command.operationId, command.issuedAt, command.expectedVersion,
+    );
+    const verified = tx.query(
+      'SELECT id FROM _user WHERE id = base64_url_safe(?1) AND email IS NOT NULL AND unverified_email IS NULL',
+      [user.id],
+    );
+    if (verified.length !== 1) throw new HttpError(401, 'Verified authentication required');
+
+    const prior = tx.query(
+      'SELECT request_hash = ?3, entity_type, entity_id, action, outcome FROM audit_events WHERE actor_user_id = base64_url_safe(?1) AND operation_id = ?2',
+      [user.id, command.operationId, hash],
+    )[0];
+    if (prior) {
+      if (Number(prior[0]) === 1
+          && prior[1] === 'profile' && prior[2] === user.id && prior[3] === 'update' && prior[4] === 'success') {
+        const existing = readOwnProfile(tx, user.id);
+        if (!existing) throw new HttpError(409, 'Profile command cannot be replayed');
+        tx.rollback();
+        return HttpResponse.json(existing);
+      }
+      throw new HttpError(409, 'Profile operation conflict');
+    }
+
+    const current = tx.query('SELECT version FROM profiles WHERE id = base64_url_safe(?1)', [user.id])[0];
+    if (!current) throw new HttpError(404, 'Profile not found');
+    const beforeVersion = safeInteger(current[0]);
+    if (beforeVersion !== command.expectedVersion) throw new HttpError(409, 'Profile version conflict');
+    if (tx.execute(
+      'UPDATE profiles SET display_name = ?2, version = version + 1, updated_at = unixepoch() WHERE id = base64_url_safe(?1) AND version = ?3',
+      [user.id, command.displayName, command.expectedVersion],
+    ) !== 1) throw new HttpError(409, 'Profile version conflict');
+    if (tx.execute(
+      'INSERT INTO audit_events (actor_user_id, operation_id, entity_type, entity_id, action, request_hash, before_version, after_version, outcome) VALUES (base64_url_safe(?1), ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)',
+      [user.id, command.operationId, 'profile', user.id, 'update', hash, beforeVersion, beforeVersion + 1, 'success'],
+    ) !== 1) throw new Error('Profile audit was not applied');
+    const profile = readOwnProfile(tx, user.id);
+    if (!profile) throw new Error('Profile update was not readable');
+    tx.commit();
+    committed = true;
+    return HttpResponse.json(profile);
+  } catch (error) {
+    if (!committed) tx.rollback();
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(409, 'Profile command rejected');
+  }
+}
+
 export const { initEndpoint, incomingHandler, sqliteFunctionEndpoint } = defineConfig({
-  httpHandlers: [HttpHandler.post('/api/trail-party/profile', createProfile)],
+  httpHandlers: [
+    HttpHandler.post('/api/trail-party/profile', createProfile),
+    HttpHandler.post('/api/trail-party/profile/update', updateProfile),
+  ],
 });

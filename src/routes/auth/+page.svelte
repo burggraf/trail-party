@@ -40,6 +40,7 @@
   let passwordRepeat = $state('');
   let mfaCode = $state('');
   let displayName = $state('');
+  let editingProfile = $state(false);
   let pendingEmail = $state('');
   let resetSent = $state(false);
   let busy = $state(false);
@@ -158,7 +159,7 @@
     }
 
     currentUser = validation.user;
-    await loadProfile(validation.client, validation.user, true);
+    await loadProfile(validation.client, validation.user, fromCredentialFlow);
   }
 
   async function loadProfile(api: Client, user: User, navigateOnSuccess: boolean): Promise<void> {
@@ -390,6 +391,52 @@
     }
   }
 
+  async function handleUpdateProfile(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (busy || !client || !currentUser || !profile) return;
+    clearMessages();
+    const name = displayName.trim();
+    if (!name) {
+      errorMessage = 'Enter a display name.';
+      return;
+    }
+    if (Array.from(name).length > 80) {
+      errorMessage = 'Display names must be 80 characters or fewer.';
+      return;
+    }
+    busy = true;
+    try {
+      const timestamp = Date.now();
+      const response = await client.fetch('/api/trail-party/profile/update', {
+        method: 'POST',
+        body: JSON.stringify({
+          display_name: name,
+          operation_id: uuidV7(timestamp),
+          issued_at: Math.floor(timestamp / 1000),
+          expected_version: profile.version,
+        }),
+      });
+      const value: unknown = await response.json();
+      if (!isSafeProfile(value) || value.id !== currentUser.id) {
+        throw new Error('The account service returned an invalid profile.');
+      }
+      profile = value;
+      editingProfile = false;
+      notice = 'Profile updated.';
+    } catch (error) {
+      if (error instanceof FetchError && (error.status === 401 || error.status === 403)) {
+        await showInvalidSession(client);
+      } else if (error instanceof FetchError && error.status === 409) {
+        await loadProfile(client, currentUser, false);
+        errorMessage = 'Your profile changed elsewhere. Review the latest name and try again.';
+      } else {
+        errorMessage = authError(error, 'We could not update your profile. Try again.');
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   async function showInvalidSession(api: Client): Promise<void> {
     await logoutBrowserSession(api);
     currentUser = undefined;
@@ -496,11 +543,24 @@
       </form>
       <Button type="button" variant="outline" disabled={busy} class="w-full" onclick={handleLogout}>Sign out</Button>
     {:else if view === 'authenticated' && profile}
-      <div class="space-y-4" aria-labelledby="profile-title">
-        <h2 id="profile-title" class="text-xl font-semibold">{profile.display_name}</h2>
-        <p class="text-sm text-muted-foreground">Your first profile is restored and ready.</p>
-        <Button type="button" variant="outline" disabled={busy} class="w-full" onclick={handleLogout}>Sign out</Button>
-      </div>
+      {#if editingProfile}
+        <form class="space-y-5" onsubmit={handleUpdateProfile} aria-describedby="auth-feedback" aria-busy={busy}>
+          <div class="space-y-2">
+            <label for="display-name">Display name</label>
+            <input id="display-name" name="display-name" type="text" autocomplete="nickname" required maxlength="80" bind:value={displayName} class="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-base outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+          </div>
+          <Button type="submit" disabled={busy} class="w-full">{busy ? 'Saving…' : 'Save profile'}</Button>
+          <Button type="button" variant="outline" disabled={busy} class="w-full" onclick={() => { editingProfile = false; clearMessages(); }}>Cancel</Button>
+        </form>
+      {:else}
+        <div class="space-y-4" aria-labelledby="profile-title">
+          <h2 id="profile-title" class="text-xl font-semibold">{profile.display_name}</h2>
+          <p data-testid="authenticated-user-id" class="sr-only">{currentUser?.id}</p>
+          <p class="text-sm text-muted-foreground">Your first profile is restored and ready.</p>
+          <Button type="button" variant="outline" disabled={busy} class="w-full" onclick={() => { displayName = profile?.display_name ?? ''; editingProfile = true; }}>Edit profile</Button>
+          <Button type="button" variant="outline" disabled={busy} class="w-full" onclick={handleLogout}>Sign out</Button>
+        </div>
+      {/if}
     {:else if mode === 'register'}
       <form class="space-y-5" onsubmit={handleRegister} aria-describedby="auth-feedback" aria-busy={busy}>
         <div class="space-y-2">

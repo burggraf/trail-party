@@ -1,0 +1,57 @@
+name: Real browser tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  chromium-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install and verify pinned TrailBase
+        run: |
+          node scripts/setup-trailbase.mjs
+          echo "$PWD/.local/tools/trailbase-v0.33.14-linux-x64" >> "$GITHUB_PATH"
+      - name: Install and verify pinned Mailpit
+        run: |
+          mkdir -p .local/bin
+          curl --fail --location --retry 2 \
+            https://github.com/axllent/mailpit/releases/download/v1.31.0/mailpit-linux-amd64.tar.gz \
+            --output /tmp/mailpit-v1.31.0.tar.gz
+          echo "076b5ded9a2182842b93e761b9586a1a251445bffe2666f9f22a6dc14470237d  /tmp/mailpit-v1.31.0.tar.gz" | sha256sum --check
+          tar -xzf /tmp/mailpit-v1.31.0.tar.gz -C .local/bin
+          chmod 0755 .local/bin/mailpit
+          echo "$PWD/.local/bin" >> "$GITHUB_PATH"
+          .local/bin/mailpit version --no-release-check | grep -F 'mailpit v1.31.0'
+      - name: Provision the owner-selected Chrome channel
+        run: pnpm exec playwright install --with-deps chrome
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm test:unit
+      - run: pnpm build
+      - run: pnpm test:backend -- capabilities
+      - name: Exercise failure diagnostics and teardown
+        shell: bash
+        run: |
+          set +e
+          E2E_FORCE_FAILURE=1 pnpm exec playwright test --config playwright.config.ts tests/e2e/diagnostics.spec.ts --project=chromium --retries=0
+          status=$?
+          set -e
+          test "$status" -ne 0
+          test -n "$(find .artifacts/e2e/test-results -name trace.zip -print -quit)"
+          test -z "$(find .local/test-runs -maxdepth 1 -type d -name 'e2e-*' -print -quit)"
+      - name: Run real Chromium E2E
+        run: pnpm test:e2e -- --project=chromium --retries=0
+      - name: Publish sanitized E2E result metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-result-metadata
+          path: .artifacts/e2e/results.json
+          if-no-files-found: warn

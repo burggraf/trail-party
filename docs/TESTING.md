@@ -45,15 +45,16 @@ The integration framing regression splits genuine SSE response bytes, not invent
 
 ## Test infrastructure (P04)
 
-Proposed files:
+Implemented files:
 
-- `scripts/test-stack.mjs`: creates marker-owned depot, chooses loopback ports, starts/stops TrailBase and local mail sink; bounds readiness waits; rejects non-test targets.
-- `scripts/seed-test-data.ts`: inserts original deterministic synthetic question bank and baseline test identities. Never imports the private corpus in public CI.
-- `playwright.config.ts`: starts the owned stack; browser projects; traces/screenshots/video policy; zero acceptance retries.
-- `tests/e2e/fixtures.ts`: yields actor-specific BrowserContexts/pages and API readers; closes them in finally/teardown.
-- `tests/fixtures/questions.json`: original questions with known answer text, long Unicode examples and category/difficulty/level variety; content safe for public Git.
-- `tests/backend/authorization.test.ts`, `tests/backend/contracts.test.ts`.
-- `tests/e2e/auth.spec.ts`, `tests/e2e/harness.spec.ts`, then scenario files below as capabilities arrive.
+- `scripts/test-stack.mjs`: creates a marker-owned `.local/test-runs/e2e-*` depot, allocates backend/mail ports, starts/stops TrailBase, Vite and a pinned local Mailpit, seeds only synthetic questions/accounts, proves health plus a per-run schema API, and refuses foreign cleanup targets.
+- `playwright.config.ts`: starts the owned stack through `scripts/e2e-global-setup.mjs`, uses the installed Chrome channel, serial workers, zero retries, JSON result metadata, traces/screenshots on failure and opt-in video (`PLAYWRIGHT_VIDEO=1`).
+- `tests/e2e/fixtures.ts`: yields six actor-specific BrowserContexts/pages with no shared storage; local inbox helpers extract only private test links.
+- `tests/fixtures/questions.json`: small public synthetic bank with categories, difficulty variety, Unicode and known answer text. The seed is never connected to the private P03 corpus.
+- `tests/e2e/auth.spec.ts`, `tests/e2e/harness.spec.ts`, and `tests/e2e/diagnostics.spec.ts` cover real browser auth, local verification/reset mail, actor isolation, authorized profile SSE, display-context isolation and an induced-failure diagnostic path.
+- `scripts/test-stack.test.mjs` proves a foreign depot cannot be removed and an owned marker can be cleaned.
+
+The package commands are `pnpm test:e2e -- --project=chromium`, `pnpm test:e2e:headed`, and `pnpm test:e2e:safety`. The workflow `.github/workflows/test.yml` installs the pinned TrailBase/Mailpit/Chrome prerequisites, runs the induced failure before the green suite, and uploads only sanitized Playwright result metadata; raw TrailBase/Mailpit logs and traces remain local/ignored.
 
 Isolation rules:
 

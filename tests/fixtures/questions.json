@@ -1,0 +1,26 @@
+[
+  {
+    "source_id": "e2e-q-1",
+    "category": "General",
+    "subcategory": "Basics",
+    "difficulty": "easy",
+    "question": "What is one?",
+    "answers": ["One", "Two", "Three", "Four"]
+  },
+  {
+    "source_id": "e2e-q-2",
+    "category": "General",
+    "subcategory": "Basics",
+    "difficulty": "medium",
+    "question": "What is two?",
+    "answers": ["One", "Two", "Three", "Four"]
+  },
+  {
+    "source_id": "e2e-q-3",
+    "category": "Unicode",
+    "subcategory": "Long",
+    "difficulty": "hard",
+    "question": "Which symbol is snow?",
+    "answers": ["☀️", "❄️", "🌧️", "🌈"]
+  }
+]

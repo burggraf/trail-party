@@ -235,7 +235,7 @@
     {
       "id": "P04",
       "title": "Real multi-user test harness before feature expansion",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "P02"
       ],
@@ -244,43 +244,43 @@
         {
           "id": "P04.T1",
           "title": "Own an isolated stack and deterministic fixtures",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P04.T2",
           "title": "Create independent browser actors and real auth tests",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P04.T3",
           "title": "Install reproducible diagnostics and CI",
-          "status": "pending"
+          "status": "complete"
         }
       ],
       "criteria": [
         {
           "id": "P04.C1",
           "requirement": "`pnpm test:e2e -- --project=chromium` completes real signup/verification/reset/login/logout and isolated actor-identity assertions.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P04.md"]
         },
         {
           "id": "P04.C2",
           "requirement": "Live authorized data/SSE changes cross distinct contexts; an unauthorized context cannot mutate them; no API/SSE mocks or token injection.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P04.md"]
         },
         {
           "id": "P04.C3",
           "requirement": "Harness lifecycle/safety tests prove foreign target refusal, run isolation and cleanup after success/failure; CI artifacts explain an induced failure without exposing secrets.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P04.md"]
         },
         {
           "id": "P04.C4",
           "requirement": "Plan, unit, backend and implemented E2E tests run reproducibly in CI. Full gameplay is still pending and is not represented by a skipped passing test.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P04.md"]
         }
       ]
     },
