@@ -469,7 +469,18 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
         }),
         throwOnError: false,
       });
-      assert.equal(promotion.status, 200, 'synthetic authenticated-unverified promotion failed');
+      let promotionDetail = '';
+      if (promotion.status !== 200) {
+        promotionDetail = (await promotion.text())
+          .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/gu, '<email>')
+          .replace(/(password|token|secret)[^\s,;:]*/giu, '<redacted>')
+          .slice(0, 400);
+      }
+      assert.equal(
+        promotion.status,
+        200,
+        `synthetic authenticated-unverified promotion failed (HTTP ${promotion.status}; ${promotionDetail || 'no response body'})`,
+      );
       unverifiedClient = unverified;
       unverifiedUserId = unverified.user()?.id;
       assert.ok(unverifiedUserId, 'synthetic authenticated-unverified user has no native id');
