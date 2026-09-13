@@ -6,6 +6,12 @@ test('isolates six real browser actors and their native identities', async ({ ac
   const identities = new Set<string>();
   const tokens = new Set<string>();
   const cookieMarkers = new Set<string>();
+  for (const actor of Object.values(actors)) {
+    await actor.page.goto('/auth');
+    expect(await actor.context.cookies()).toEqual([]);
+    expect(await actor.page.evaluate(() => sessionStorage.getItem('trail-party:auth-tokens'))).toBeNull();
+    expect(await actor.page.evaluate(() => localStorage.getItem('trail-party:auth-tokens'))).toBeNull();
+  }
   for (const [name, actor] of Object.entries(actors)) {
     await signIn(actor.page, actor.account);
     await actor.context.addCookies([{ name: 'e2e-actor-marker', value: name, url: 'http://127.0.0.1:4173' }]);
@@ -15,6 +21,7 @@ test('isolates six real browser actors and their native identities', async ({ ac
     cookieMarkers.add((await actor.context.cookies()).find(cookie => cookie.name === 'e2e-actor-marker')?.value ?? '');
     expect(await actor.page.evaluate(() => localStorage.getItem('trail-party:auth-tokens'))).toBeNull();
     expect(await actor.page.evaluate(() => localStorage.getItem('e2e-actor-marker'))).toBe(name);
+    expect((await actor.context.cookies()).find(cookie => cookie.name === 'e2e-actor-marker')?.value).toBe(name);
   }
   expect(identities.size).toBe(6);
   expect(identities).not.toContain('');

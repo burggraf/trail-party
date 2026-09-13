@@ -21,12 +21,18 @@
   let client: Client | undefined;
   let currentUserId = $state('');
   let sseReady = $state(false);
+  let sseEventCount = $state(0);
   let lastSseProfileId = $state('');
 
   function merge(profile: Profile): void {
     const index = profiles.findIndex(item => item.id === profile.id);
     if (index < 0) profiles = [...profiles, profile].sort((a, b) => a.display_name.localeCompare(b.display_name));
     else profiles = profiles.map((item, itemIndex) => itemIndex === index ? profile : item);
+  }
+
+  function recordSseEvent(id: string): void {
+    lastSseProfileId = id;
+    sseEventCount += 1;
   }
 
   onMount(() => {
@@ -54,14 +60,17 @@
         if (next.done) break;
         const event = next.value as { Insert?: Profile; Update?: Profile; Delete?: { id?: string } };
         if (event.Insert) {
-          lastSseProfileId = event.Insert.id;
+          recordSseEvent(event.Insert.id);
           merge(event.Insert);
         }
         if (event.Update) {
-          lastSseProfileId = event.Update.id;
+          recordSseEvent(event.Update.id);
           merge(event.Update);
         }
-        if (event.Delete?.id) profiles = profiles.filter(profile => profile.id !== event.Delete?.id);
+        if (event.Delete?.id) {
+          recordSseEvent(event.Delete.id);
+          profiles = profiles.filter(profile => profile.id !== event.Delete?.id);
+        }
       }
       sseReady = false;
     } catch (error) {
@@ -85,6 +94,7 @@
     <p class="text-muted-foreground">Authorized profile updates appear here without a reload.</p>
     <p data-testid="authenticated-user-id" class="sr-only">{currentUserId}</p>
     <p data-testid="profile-sse-ready" class="sr-only">{sseReady ? 'ready' : ''}</p>
+    <p data-testid="profile-sse-event-count" class="sr-only">{sseEventCount}</p>
     <p data-testid="profile-sse-event" class="sr-only">{lastSseProfileId}</p>
     <Button type="button" variant="outline" onclick={signOut}>Sign out</Button>
   </div>

@@ -131,6 +131,30 @@ async function stopProcess(child, closed) {
   ]).finally(() => clearTimeout(timer));
 }
 
+export async function cleanupOwnedStack({ stopChildren, stopMailpit, waitForResources, closeLogs, removeDepot }) {
+  let firstError;
+  const attempt = async action => {
+    try {
+      await action();
+    } catch (error) {
+      firstError ??= error;
+    }
+  };
+
+  for (const stopChild of stopChildren) await attempt(stopChild);
+  await attempt(stopMailpit);
+  let resourcesStopped = false;
+  try {
+    await waitForResources();
+    resourcesStopped = true;
+  } catch (error) {
+    firstError ??= error;
+  }
+  await attempt(closeLogs);
+  if (resourcesStopped) await attempt(removeDepot);
+  if (firstError) throw firstError;
+}
+
 export async function removeOwnedDepot(depot, owner) {
   const root = await realpath(testRoot);
   const actual = await realpath(depot);
@@ -327,42 +351,34 @@ export async function startTestStack() {
     if (stopPromise) return stopPromise;
     stopPromise = (async () => {
       const pids = [vite?.pid, trail?.pid, mailpitChild?.pid].filter(pid => Number.isInteger(pid));
-      let firstError;
-      const attempt = async action => {
-        try {
-          await action();
-        } catch (error) {
-          firstError ??= error;
-        }
-      };
-
-      await attempt(() => stopProcess(vite, viteClosed));
-      await attempt(() => stopProcess(trail, trailClosed));
-      await attempt(async () => {
-        if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
-        if (mailpitClosed) await mailpitClosed;
+      await cleanupOwnedStack({
+        stopChildren: [
+          () => stopProcess(vite, viteClosed),
+          () => stopProcess(trail, trailClosed),
+        ],
+        stopMailpit: async () => {
+          if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
+          if (mailpitClosed) await mailpitClosed;
+        },
+        waitForResources: () => waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath),
+        closeLogs: async () => {
+          let firstError;
+          for (const stream of [viteLog, trailLog, mailpitLog]) {
+            try {
+              if (stream && !stream.destroyed) await new Promise(resolvePromise => stream.end(resolvePromise));
+            } catch (error) {
+              firstError ??= error;
+            }
+          }
+          if (firstError) throw firstError;
+        },
+        removeDepot: async () => {
+          if (!depotRemoved) {
+            await removeOwnedDepot(depot, owner);
+            depotRemoved = true;
+          }
+        },
       });
-
-      let resourcesStopped = false;
-      try {
-        await waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath);
-        resourcesStopped = true;
-      } catch (error) {
-        firstError ??= error;
-      }
-
-      for (const stream of [viteLog, trailLog, mailpitLog]) {
-        await attempt(async () => {
-          if (stream && !stream.destroyed) await new Promise(resolvePromise => stream.end(resolvePromise));
-        });
-      }
-      if (resourcesStopped && !depotRemoved) {
-        await attempt(async () => {
-          await removeOwnedDepot(depot, owner);
-          depotRemoved = true;
-        });
-      }
-      if (firstError) throw firstError;
     })();
     stopPromise = stopPromise.catch(error => {
       stopPromise = undefined;

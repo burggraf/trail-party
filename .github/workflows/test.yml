@@ -66,16 +66,13 @@ jobs:
           status=$?
           set -e
           test "$status" -ne 0
-          test -n "$(find .artifacts/e2e/test-results -name trace.zip -print -quit)"
+          trace_path="$(find .artifacts/e2e/test-results -name trace.zip -print -quit)"
+          test -n "$trace_path"
+          cp "$trace_path" .artifacts/e2e/induced-failure-trace.zip
+          test -s .artifacts/e2e/induced-failure-trace.zip
           test -z "$(find .local/test-runs -maxdepth 1 -type d -name 'e2e-*' -print -quit)"
-          node --input-type=module <<'NODE'
-          import { writeFile } from 'node:fs/promises';
-          await writeFile('.artifacts/e2e/induced-failure.json', JSON.stringify({
-            expected_failure: true,
-            trace_retained: true,
-            owned_stack_cleaned: true,
-          }, null, 2));
-          NODE
+          node scripts/sanitize-e2e-result.mjs .artifacts/e2e/results.json .artifacts/e2e/induced-failure.json
+          test -s .artifacts/e2e/induced-failure.json
       - name: Run real Chromium E2E
         run: pnpm test:e2e -- --project=chromium --retries=0
       - name: Publish sanitized E2E result metadata
@@ -86,5 +83,6 @@ jobs:
           path: |
             .artifacts/e2e/results.json
             .artifacts/e2e/induced-failure.json
+            .artifacts/e2e/induced-failure-trace.zip
             .artifacts/e2e/chrome-provenance.txt
           if-no-files-found: warn

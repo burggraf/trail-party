@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import test from 'node:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { assertSafeTestUrl, removeOwnedDepot, waitForOwnedResourcesToStop } from './test-stack.mjs';
+import { assertSafeTestUrl, cleanupOwnedStack, removeOwnedDepot, waitForOwnedResourcesToStop } from './test-stack.mjs';
 
 test('test-stack refuses foreign depot cleanup and permits only its marker owner', async () => {
   const root = resolve('.local/test-runs');
@@ -19,6 +19,33 @@ test('test-stack refuses foreign depot cleanup and permits only its marker owner
   await removeOwnedDepot(depot, owner);
   await assert.rejects(() => readFile(depot), /ENOENT/u);
   await rm(depot, { recursive: true, force: true });
+});
+
+test('test-stack cleanup attempts every sibling and can be retried after one stop fails', async () => {
+  const calls = [];
+  let failFirstChild = true;
+  const cleanup = () => cleanupOwnedStack({
+    stopChildren: [
+      async () => {
+        calls.push('first-child');
+        if (failFirstChild) {
+          failFirstChild = false;
+          throw new Error('first child stop failed');
+        }
+      },
+      async () => { calls.push('second-child'); },
+    ],
+    stopMailpit: async () => { calls.push('mailpit'); },
+    waitForResources: async () => { calls.push('resources'); },
+    closeLogs: async () => { calls.push('logs'); },
+    removeDepot: async () => { calls.push('depot'); },
+  });
+
+  await assert.rejects(cleanup(), /first child stop failed/u);
+  assert.deepEqual(calls, ['first-child', 'second-child', 'mailpit', 'resources', 'logs', 'depot']);
+  calls.length = 0;
+  await cleanup();
+  assert.deepEqual(calls, ['first-child', 'second-child', 'mailpit', 'resources', 'logs', 'depot']);
 });
 
 test('test-stack rejects production and external Mailpit targets', () => {

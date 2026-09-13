@@ -49,6 +49,8 @@ test('authorized profile update crosses independent contexts through real SSE', 
 
     await expect(actors.X.page.getByTestId('profile-sse-event')).toHaveText(actors.X.account.id);
     const outsiderSseEventBefore = await actors.X.page.getByTestId('profile-sse-event').textContent() ?? '';
+    const hostSseEventCountBefore = Number(await actors.H.page.getByTestId('profile-sse-event-count').textContent());
+    const outsiderSseEventCountBefore = Number(await actors.X.page.getByTestId('profile-sse-event-count').textContent());
     const authorizedUpdateRequest = actors.A1.page.waitForRequest(request =>
       request.url().includes('/api/trail-party/profile/update') && request.method() === 'POST');
     await actors.A1.page.getByRole('button', { name: 'Edit profile' }).click();
@@ -56,10 +58,14 @@ test('authorized profile update crosses independent contexts through real SSE', 
     await actors.A1.page.getByRole('button', { name: 'Save profile' }).click();
     await authorizedUpdateRequest;
     await expect(actors.A1.page.getByRole('heading', { name: 'Alpha one live' })).toBeVisible();
+    await expect(actors.H.page.getByTestId('profile-sse-ready')).toHaveText('ready');
+    await expect(actors.X.page.getByTestId('profile-sse-ready')).toHaveText('ready');
     await expect(actors.H.page.getByTestId('profile-sse-event')).toHaveText(actors.A1.account.id);
+    await expect(actors.H.page.getByTestId('profile-sse-event-count')).toHaveText(String(hostSseEventCountBefore + 1));
     await expect(actors.H.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveText('Alpha one live');
     await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
     await expect(actors.X.page.getByTestId('profile-sse-event')).toHaveText(outsiderSseEventBefore);
+    await expect(actors.X.page.getByTestId('profile-sse-event-count')).toHaveText(String(outsiderSseEventCountBefore));
   } finally {
     await outsiderEditor.close();
   }
@@ -72,6 +78,9 @@ test('display actor remains a separate context and does not inherit browser auth
     await page.goto('/display');
     await expect(page.getByRole('heading', { name: 'Trail Party Display' })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('trail-party:auth-tokens'))).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('trail-party:auth-tokens'))).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('e2e-actor-marker'))).toBeNull();
+    expect((await display.cookies()).find(cookie => cookie.name === 'e2e-actor-marker')).toBeUndefined();
     expect(stack.backend).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/u);
   } finally {
     await display.close();
