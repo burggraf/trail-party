@@ -5,14 +5,21 @@ const AUTH_PATH = '/api/auth/v1';
 test('isolates six real browser actors and their native identities', async ({ actors }) => {
   const identities = new Set<string>();
   const tokens = new Set<string>();
-  for (const actor of Object.values(actors)) {
+  const cookieMarkers = new Set<string>();
+  for (const [name, actor] of Object.entries(actors)) {
     await signIn(actor.page, actor.account);
+    await actor.context.addCookies([{ name: 'e2e-actor-marker', value: name, url: 'http://127.0.0.1:4173' }]);
+    await actor.page.evaluate(value => localStorage.setItem('e2e-actor-marker', value), name);
     identities.add(await actor.page.getByTestId('authenticated-user-id').textContent() ?? '');
     tokens.add(await actor.page.evaluate(() => sessionStorage.getItem('trail-party:auth-tokens') ?? ''));
+    cookieMarkers.add((await actor.context.cookies()).find(cookie => cookie.name === 'e2e-actor-marker')?.value ?? '');
+    expect(await actor.page.evaluate(() => localStorage.getItem('trail-party:auth-tokens'))).toBeNull();
+    expect(await actor.page.evaluate(() => localStorage.getItem('e2e-actor-marker'))).toBe(name);
   }
   expect(identities.size).toBe(6);
   expect(identities).not.toContain('');
   expect(tokens.size).toBe(6);
+  expect(cookieMarkers).toEqual(new Set(['H', 'A1', 'A2', 'B1', 'B2', 'X']));
 
   await signOut(actors.H.page);
   await expect(actors.H.page.getByLabel('Email')).toHaveValue('');

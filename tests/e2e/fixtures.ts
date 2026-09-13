@@ -95,4 +95,8 @@ export const test = base.extend<{
   },
 });
 
+test.beforeEach(async ({ browser }, testInfo) => {
+  testInfo.annotations.push({ type: 'browser-version', description: browser.version() });
+});
+
 export { expect };

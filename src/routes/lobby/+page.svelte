@@ -20,6 +20,7 @@
   let reader: ReadableStreamDefaultReader<unknown> | undefined;
   let client: Client | undefined;
   let currentUserId = $state('');
+  let lastSseProfileId = $state('');
 
   function merge(profile: Profile): void {
     const index = profiles.findIndex(item => item.id === profile.id);
@@ -50,8 +51,14 @@
         const next = await reader.read();
         if (next.done) break;
         const event = next.value as { Insert?: Profile; Update?: Profile; Delete?: { id?: string } };
-        if (event.Insert) merge(event.Insert);
-        if (event.Update) merge(event.Update);
+        if (event.Insert) {
+          lastSseProfileId = event.Insert.id;
+          merge(event.Insert);
+        }
+        if (event.Update) {
+          lastSseProfileId = event.Update.id;
+          merge(event.Update);
+        }
         if (event.Delete?.id) profiles = profiles.filter(profile => profile.id !== event.Delete?.id);
       }
     } catch (error) {
@@ -73,6 +80,7 @@
     <h1 id="lobby-title" class="text-3xl font-bold tracking-tight sm:text-4xl">Lobby</h1>
     <p class="text-muted-foreground">Authorized profile updates appear here without a reload.</p>
     <p data-testid="authenticated-user-id" class="sr-only">{currentUserId}</p>
+    <p data-testid="profile-sse-event" class="sr-only">{lastSseProfileId}</p>
     <Button type="button" variant="outline" onclick={signOut}>Sign out</Button>
   </div>
   {#if errorMessage}<p role="alert">{errorMessage}</p>{/if}

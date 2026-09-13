@@ -58,6 +58,40 @@ async function portFree(port) {
   await new Promise(resolvePromise => server.close(resolvePromise));
 }
 
+async function portIsFree(port) {
+  try {
+    await portFree(port);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function processAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    if (error?.code === 'EPERM') return true;
+    throw error;
+  }
+}
+
+async function waitForOwnedResourcesToStop(pids, ports, logPath) {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const processesStopped = pids.every(pid => !processAlive(pid));
+    const portsFree = (await Promise.all(ports.map(portIsFree))).every(Boolean);
+    if (processesStopped && portsFree) return;
+    await new Promise(resolvePromise => setTimeout(resolvePromise, 25));
+  }
+  const livePids = pids.filter(processAlive);
+  const busyPorts = [];
+  for (const port of ports) if (!(await portIsFree(port))) busyPorts.push(port);
+  fail(`Owned E2E resources did not stop; private diagnostics: ${logPath}; live pids: ${livePids.join(',') || 'none'}; busy ports: ${busyPorts.join(',') || 'none'}`);
+}
+
 function signalGroup(pid, signal) {
   try { process.kill(-pid, signal); }
   catch (error) { if (error?.code !== 'ESRCH') throw error; }
@@ -241,14 +275,22 @@ export async function startTestStack() {
   let viteClosed;
   let mailpitChild;
   let mailpitClosed;
+  let mailpitLog;
+  let trailLog;
+  let viteLog;
   let closed = false;
   const stop = async () => {
     if (closed) return;
     closed = true;
+    const pids = [vite?.pid, trail?.pid, mailpitChild?.pid].filter(pid => Number.isInteger(pid));
     await stopProcess(vite, viteClosed);
     await stopProcess(trail, trailClosed);
     if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
     if (mailpitClosed) await mailpitClosed;
+    await waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath);
+    for (const stream of [viteLog, trailLog, mailpitLog]) {
+      if (stream && !stream.destroyed) await new Promise(resolvePromise => stream.end(resolvePromise));
+    }
     await removeOwnedDepot(depot, owner);
   };
   try {
@@ -262,7 +304,7 @@ export async function startTestStack() {
     await mkdir(join(depot, 'wasm'), { recursive: true, mode: 0o700 });
     await cp(join(repository, '.artifacts/p02-t2/application/profile.wasm'), join(depot, 'wasm/profile.wasm'));
 
-    const mailpitLog = createWriteStream(mailpitLogPath, { flags: 'a', mode: 0o600 });
+    mailpitLog = createWriteStream(mailpitLogPath, { flags: 'a', mode: 0o600 });
     mailpitChild = spawn(mailpitCommand, [
       '--database', join(depot, 'mailpit.db'), '--listen', `127.0.0.1:${mailpitPort}`,
       '--smtp', `127.0.0.1:${smtpPort}`, '--disable-version-check', '--quiet',
@@ -272,7 +314,7 @@ export async function startTestStack() {
     mailpitClosed = new Promise(resolvePromise => mailpitChild.once('close', resolvePromise));
     await waitFor(`${mailpit}/readyz`, response => response.ok, 'Mailpit', mailpitLogPath);
 
-    const trailLog = createWriteStream(trailLogPath, { flags: 'a', mode: 0o600 });
+    trailLog = createWriteStream(trailLogPath, { flags: 'a', mode: 0o600 });
     trail = spawn(trailCommand, [
       '--depot', depot, '--public-url', backend, 'run', '--address', `127.0.0.1:${backendPort}`,
       '--runtime-threads', '1', '--stderr-logging',
@@ -310,7 +352,7 @@ export async function startTestStack() {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...env(), TRAILBASE_PORT: String(backendPort), VITE_PORT: '4173' },
     });
-    const viteLog = createWriteStream(viteLogPath, { flags: 'a', mode: 0o600 });
+    viteLog = createWriteStream(viteLogPath, { flags: 'a', mode: 0o600 });
     vite.stdout.pipe(viteLog, { end: false });
     vite.stderr.pipe(viteLog, { end: false });
     viteClosed = new Promise(resolvePromise => vite.once('close', resolvePromise));
