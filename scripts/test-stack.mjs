@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { join, resolve, sep } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { initClient } from 'trailbase';
 
 const repository = resolve(import.meta.dirname, '..');
@@ -178,6 +178,24 @@ export async function removeOwnedDepot(depot, owner) {
   await rm(actual, { recursive: true });
 }
 
+async function removeFreshDepot(depot, owner) {
+  const root = await realpath(testRoot);
+  const actual = await realpath(depot);
+  if (dirname(actual) !== root || !basename(actual).startsWith('e2e-')) {
+    fail('Refusing cleanup of an unexpected fresh test depot');
+  }
+  let existingOwner;
+  try {
+    existingOwner = await readFile(join(actual, '.owner'), 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (existingOwner !== undefined && existingOwner !== owner) {
+    fail('Refusing cleanup of an unowned test depot');
+  }
+  await rm(actual, { recursive: true });
+}
+
 function runSqlite(dbPath, script, args) {
   return spawnSync('python3', ['-c', script, dbPath, ...(args ?? [])], { encoding: 'utf8', env: env() });
 }
@@ -332,25 +350,43 @@ export async function startTestStack() {
   const depot = await mkdtemp(join(testRoot, 'e2e-'));
   const marker = randomUUID();
   const owner = `trail-party-e2e-v1\n${repository}\n${marker}\n`;
-  await writeFile(join(depot, '.owner'), owner, { mode: 0o600 });
   const logDir = join(artifactRoot, marker);
-  await mkdir(logDir, { recursive: true, mode: 0o700 });
   const trailLogPath = join(logDir, 'trail.log');
   const viteLogPath = join(logDir, 'vite.log');
   const mailpitLogPath = join(logDir, 'mailpit.log');
   const stackFile = join(depot, 'stack.json');
-  const backendPort = await freePort();
-  const smtpPort = await freePort();
-  const mailpitPort = await freePort();
-  const backend = `http://127.0.0.1:${backendPort}`;
   const frontend = 'http://127.0.0.1:4173';
-  const mailpit = `http://127.0.0.1:${mailpitPort}`;
-  assertSafeTestUrl(backend, 'TrailBase');
-  assertSafeTestUrl(frontend, 'Vite');
-  assertSafeTestUrl(mailpit, 'Mailpit');
-  const readyApi = `e2e_ready_${marker.replaceAll('-', '')}`;
-  const accounts = Object.fromEntries(['H', 'A1', 'A2', 'B1', 'B2', 'X'].map(name => [name, accountRecord(name, marker)]));
-  const signup = { email: `signup-${marker}@example.invalid`, password: randomBytes(24).toString('base64url') };
+  let backendPort;
+  let smtpPort;
+  let mailpitPort;
+  let backend;
+  let mailpit;
+  let readyApi;
+  let accounts;
+  let signup;
+  try {
+    await writeFile(join(depot, '.owner'), owner, { mode: 0o600 });
+    await mkdir(logDir, { recursive: true, mode: 0o700 });
+    await portFree(4173);
+    backendPort = await freePort();
+    smtpPort = await freePort();
+    mailpitPort = await freePort();
+    backend = `http://127.0.0.1:${backendPort}`;
+    mailpit = `http://127.0.0.1:${mailpitPort}`;
+    assertSafeTestUrl(backend, 'TrailBase');
+    assertSafeTestUrl(frontend, 'Vite');
+    assertSafeTestUrl(mailpit, 'Mailpit');
+    readyApi = `e2e_ready_${marker.replaceAll('-', '')}`;
+    accounts = Object.fromEntries(['H', 'A1', 'A2', 'B1', 'B2', 'X'].map(name => [name, accountRecord(name, marker)]));
+    signup = { email: `signup-${marker}@example.invalid`, password: randomBytes(24).toString('base64url') };
+  } catch (error) {
+    try {
+      await removeFreshDepot(depot, owner);
+    } catch (cleanupError) {
+      throw new Error(`${error instanceof Error ? error.message : String(error)}; early depot cleanup failed`, { cause: cleanupError });
+    }
+    throw error;
+  }
   let trail;
   let trailClosed;
   let vite;

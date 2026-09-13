@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 
-const [, , inputPath, outputPath] = process.argv;
-if (!inputPath || !outputPath) throw new Error('usage: node scripts/sanitize-e2e-result.mjs <input.json> <output.json>');
+const [, , inputPath, outputPath, mode = 'induced'] = process.argv;
+if (!inputPath || !outputPath || !['induced', 'green'].includes(mode)) {
+  throw new Error('usage: node scripts/sanitize-e2e-result.mjs <input.json> <output.json> [induced|green]');
+}
 
 const report = JSON.parse(await readFile(inputPath, 'utf8'));
 const tests = [];
@@ -46,11 +48,12 @@ async function visit(suite, inheritedFile = '') {
 }
 
 for (const suite of report.suites ?? []) await visit(suite);
-if (tests.length === 0 || traces.length === 0) throw new Error('induced result did not contain a test and trace');
+if (tests.length === 0) throw new Error('Playwright result did not contain a test');
+if (mode === 'induced' && traces.length === 0) throw new Error('induced result did not contain a trace');
 
 await writeFile(outputPath, JSON.stringify({
   schema: 1,
-  expected_failure: true,
+  expected_failure: mode === 'induced',
   tests,
   traces,
 }, null, 2), { mode: 0o600 });
