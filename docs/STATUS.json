@@ -1,7 +1,7 @@
 {
   "version": 1,
   "project": "trail-party",
-  "updated_at": "2026-09-12",
+  "updated_at": "2026-09-13",
   "plan": "docs/plans/2026-09-11-trail-party.md",
   "reference": {
     "source_path": "~/dev/trivia-party",
@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P02.T2 is committed with final gates and Astra/medium review complete; parent must decide whether its evidence passes P02.C2, while retaining the owner-approved native reset replay residual.",
+  "next_action": "Begin P02.T3 access-matrix implementation with failing authorization/forgery checks first; retain the owner-approved native reset replay residual and do not claim P02 phase acceptance.",
   "phases": [
     {
       "id": "P00",
@@ -145,7 +145,7 @@
         {
           "id": "P02.T2",
           "title": "Implement auth/profile flows",
-          "status": "in_progress"
+          "status": "complete"
         },
         {
           "id": "P02.T3",
@@ -163,8 +163,8 @@
         {
           "id": "P02.C2",
           "requirement": "`pnpm test:backend -- auth` proves register/verify/login/reset/profile/logout/refresh using actual auth and local mail; no plaintext credential storage in Git.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P02.md"]
         },
         {
           "id": "P02.C3",
@@ -175,8 +175,8 @@
         {
           "id": "P02.C4",
           "requirement": "`pnpm check && pnpm lint && pnpm build` passes; docs/API and ACCESS specify every exposed endpoint/table and device/auth decision. Google remains explicitly externally gated, not silently dropped.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P02.md"]
         }
       ]
     },
