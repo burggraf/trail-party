@@ -49,7 +49,7 @@ tests/                           # unit, backend, import, E2E and native checks
 
 ## P02 design contract — data model and current T1/T2 boundary
 
-This contract replaces the preliminary table sketch. P02 remains in progress, not phase-accepted: T1 migrations/projections and the narrow T2 native auth/profile/return-to subset now exist, while P02.T3 authorization, avatars/devices and gameplay remain pending. [API](API.md) defines the closed endpoint/projection inventory; [ACCESS](ACCESS.md) defines every actor/operation and named negative check. P01 capability fixtures are not application permissions. P02 creates schema/constraints and synthetic security fixtures; P03 imports questions; P05 populates setup/assignment/history; P06 adds joining/teams/presence; P07 adds answers/state/grading; P08 adds timers; P09/P10 add complete display/recovery behavior. Do not implement those later commands merely to seed a P02 test.
+This contract is the accepted P02 schema/projection boundary. P02 is parent-accepted complete: T1 migrations/projections, the narrow T2 native auth/profile/return-to subset and T3 authorization/revocation proof are implemented; production avatar/device commands and gameplay remain later work. [API](API.md) defines the closed endpoint/projection inventory; [ACCESS](ACCESS.md) defines every actor/operation and named negative check. P01 capability fixtures are not application permissions. P03 imports questions; P05 populates setup/assignment/history; P06 adds joining/teams/presence; P07 adds answers/state/grading; P08 adds timers; P09/P10 add complete display/recovery behavior. Do not implement those later commands merely to seed a P02 test.
 
 ### Common column, FK and generated-contract rules
 

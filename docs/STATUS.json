@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P03.T1: build the source-safe question-corpus importer with a synthetic fixture first; keep the reference database read-only and require fresh import evidence.",
+  "next_action": "Begin P03.T2: add interruption/rollback/resume, repeat and all-field preservation verification around the synthetic importer; keep the reference database read-only and require fresh evidence.",
   "phases": [
     {
       "id": "P00",
@@ -183,7 +183,7 @@
     {
       "id": "P03",
       "title": "Import the original question corpus safely",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "P02"
       ],
@@ -192,7 +192,7 @@
         {
           "id": "P03.T1",
           "title": "Build source-safe import with a synthetic fixture first",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P03.T2",
