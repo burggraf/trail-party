@@ -113,7 +113,7 @@ db.create_function('is_uuid', 1, is_uuid)
 db.create_function('is_uuid_v7', 1, is_uuid_v7)
 db.create_function('jsonschema_matches', 2, jsonschema_matches)
 user_ids = [as_bytes(value) for value in sys.argv[2:5]]
-game_id, round_id, team_id, player_a_id, player_b_id, display_id, device_user_id = [as_bytes(value) for value in sys.argv[5:12]]
+game_id, round_id, team_id, player_a_id, player_b_id, display_id, device_user_id, second_game_id = [as_bytes(value) for value in sys.argv[5:13]]
 now = int(time.time())
 try:
     db.execute('BEGIN')
@@ -124,8 +124,15 @@ try:
          (user_ids[2], 'foreign-account', None, None, None)],
     )
     db.execute(
+        "INSERT INTO questions (id, source_id, external_id, category, subcategory, difficulty, question, answer_a, answer_b, answer_c, answer_d, metadata) VALUES (991001, 'p02-private-bank-sentinel', 'private-sentinel', 'private', 'private', 'hard', 'PRIVATE_BANK_SENTINEL', 'PRIVATE_A', 'PRIVATE_B', 'PRIVATE_C', 'PRIVATE_D', '{\"source\":\"PRIVATE_METADATA_SENTINEL\"}')",
+    )
+    db.execute(
         "INSERT INTO games (id, host_id, join_code, title, location, starts_at, lifecycle) VALUES (?, ?, 'ABC123', 'Projection fixture', 'Lab', ?, 'ready')",
         (game_id, user_ids[0], now),
+    )
+    db.execute(
+        "INSERT INTO games (id, host_id, join_code, title, lifecycle) VALUES (?, ?, 'XYZ789', 'Foreign host fixture', 'ready')",
+        (second_game_id, user_ids[2]),
     )
     db.execute("INSERT INTO rounds (id, game_id, ordinal, title) VALUES (?, ?, 1, 'Round one')", (round_id, game_id))
     db.execute("INSERT INTO game_teams (id, game_id, name) VALUES (?, ?, 'Alpha')", (team_id, game_id))
@@ -427,7 +434,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
         value[8] = (value[8] & 0x3f) | 0x80;
         return value.toString('hex');
       };
-      const fixtureIds = [makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), Buffer.from(deviceUserId!, 'base64url').toString('hex')];
+      const fixtureIds = [makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), Buffer.from(deviceUserId!, 'base64url').toString('hex'), makeV7()];
       const seed = runSqlite(join(depot, 'data', 'main.db'), seedApplicationFixtures, [...ids, ...fixtureIds]);
       assert.equal(seed.status, 0, `fixture application seed failed; private diagnostics: ${logs}`);
       await start();

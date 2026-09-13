@@ -26,6 +26,7 @@ pnpm check && pnpm lint && pnpm test:unit && pnpm build
 pnpm test:scaffold
 pnpm test:shell                  # built static app; installed Chrome, isolated profiles
 pnpm test:backend -- capabilities # real pinned TrailBase, owned throwaway depot
+PATH="$PWD/.local/tools/trailbase-v0.33.14-darwin-arm64:$PATH" pnpm test:backend -- authorization # P02 access/forgery matrix
 cargo build --locked --manifest-path src-tauri/Cargo.toml
 pnpm tauri dev --no-watch        # owns a dev server; stop pnpm dev first
 # Open the printed Mailpit URL to click verification/reset links; no TrailBase admin login is needed.
@@ -33,7 +34,7 @@ pnpm tauri dev --no-watch        # owns a dev server; stop pnpm dev first
 
 Playwright is the committed browser-test runner; local Chromium checks use `channel: 'chrome'`, not a personal profile or another browser download. Seven isolated contexts can run together; full-game actors will log in separately through the UI. Shell checks currently prove only navigation, theme persistence/isolation and browser-safe rendering. See [the testing contract](docs/TESTING.md). Native window smoke is separate from browser tests; packaged/native gameplay acceptance comes later.
 
-Backend probes exercise real CRUD/auth/ACL/SSE and WASM transaction/CAS behavior using synthetic-only fixtures. They are not application signup, game schema or multi-user gameplay acceptance. The SDK's small pinned SSE fix and its regressions are documented in [patches/README.md](patches/README.md); [STACK](docs/STACK.md) records the measured contracts and CLI limitation.
+Backend probes exercise real CRUD/auth/ACL/SSE and WASM transaction/CAS behavior using synthetic-only fixtures. The P02 auth/access selectors use the pinned binary, local Mailpit where needed and owned depots; they are not application signup, game schema or multi-user gameplay acceptance. The SDK's small pinned SSE fix and its regressions are documented in [patches/README.md](patches/README.md); [STACK](docs/STACK.md) records the measured contracts and CLI limitation.
 
 ## Plan and progress
 

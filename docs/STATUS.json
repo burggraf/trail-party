@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P02.T3 access-matrix implementation with failing authorization/forgery checks first; retain the owner-approved native reset replay residual and do not claim P02 phase acceptance.",
+  "next_action": "Complete the P02.T3 trusted update/delete event and already-open-stream revocation barrier against the pinned real backend; retain the documented TrailBase table-wide SSE handshake limitation and do not claim P02 phase acceptance.",
   "phases": [
     {
       "id": "P00",
@@ -150,7 +150,7 @@
         {
           "id": "P02.T3",
           "title": "Enforce and attack the access matrix",
-          "status": "pending"
+          "status": "in_progress"
         }
       ],
       "criteria": [
@@ -170,7 +170,7 @@
           "id": "P02.C3",
           "requirement": "`pnpm test:backend -- authorization` passes all permitted and denied actor cases, including unrevealed key/grade/expand/SSE checks and forged updates.",
           "status": "pending",
-          "evidence": []
+          "evidence": ["docs/evidence/P02.md"]
         },
         {
           "id": "P02.C4",

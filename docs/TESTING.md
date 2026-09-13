@@ -39,6 +39,10 @@ Reference: [Playwright context isolation](https://playwright.dev/docs/browser-co
 
 The integration framing regression splits genuine SSE response bytes, not invented events or mocked endpoints. `tests/unit/trailbase-sse.test.ts` is separately labelled deterministic parser input for the SDK sequence-state regression and is **not** backend acceptance evidence. The pinned SDK patch is required by frozen installation. These probes do not prove automatic reconnect, browser-auth persistence, gameplay, or the ten-run full-game gate.
 
+## P02 auth/access selectors
+
+`pnpm test:backend -- auth` runs the real local-mail/native profile selector; it now also proves the trusted profile-create insert arrives through the safe event mirror with no private fields. `pnpm test:backend -- authorization` runs the real actor/forgery matrix against a fresh application depot: exact allowlisted rows, private API absence, cross-game isolation, expand/direct-mutation denial, and foreign SSE denial. These are P02 backend checks, not P04 multi-user acceptance; update/delete event delivery and already-open-stream revocation remain pending.
+
 ## Test infrastructure (P04)
 
 Proposed files:

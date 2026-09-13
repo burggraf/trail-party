@@ -1,4 +1,4 @@
-# P02.T1: read-only application projections over the versioned schema.
+# P02.T1/T3: read-only application projections over the versioned schema; subscription-enabled APIs use internal safe event mirrors where required.
 email {}
 server { application_name: "Trail Party development" }
 auth { enable_anonymous_signin: true }
@@ -13,19 +13,16 @@ record_apis {
 
 record_apis {
   name: "profiles_public"
-  table_name: "profiles"
+  table_name: "profiles_public_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  excluded_columns: "avatar_file"
-  excluded_columns: "avatar_bytes"
-  excluded_columns: "created_at"
   read_access_rule: "(EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND (_ROW_.id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS target JOIN game_players AS viewer ON viewer.game_id = target.game_id JOIN games AS g ON g.id = target.game_id WHERE target.user_id = _ROW_.id AND (target.left_at IS NULL OR g.roster_locked_at IS NOT NULL) AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR (viewer.user_id = _USER_.id AND viewer.left_at IS NULL))))) OR EXISTS (SELECT 1 FROM displays AS d JOIN games AS g ON g.id = d.game_id JOIN game_players AS target ON target.game_id = d.game_id WHERE d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed' AND (target.left_at IS NULL OR g.roster_locked_at IS NOT NULL) AND target.user_id = _ROW_.id)"
 }
 
 record_apis {
   name: "games_public"
-  table_name: "games_public"
+  table_name: "games_public_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
@@ -34,7 +31,7 @@ record_apis {
 
 record_apis {
   name: "games_host"
-  table_name: "games_host"
+  table_name: "games_host_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
@@ -43,22 +40,19 @@ record_apis {
 
 record_apis {
   name: "game_teams"
-  table_name: "game_teams"
+  table_name: "game_teams_public_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  excluded_columns: "created_at"
-  excluded_columns: "deleted_at"
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) ) AND _ROW_.deleted_at IS NULL"
+  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
 }
 
 record_apis {
   name: "game_players"
-  table_name: "game_players"
+  table_name: "game_players_public_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  excluded_columns: "created_at"
   read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
 }
 

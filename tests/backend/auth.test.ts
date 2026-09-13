@@ -70,6 +70,14 @@ async function nativeRequest(
   return client.fetch(path, { ...init, throwOnError: false });
 }
 
+function bounded<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${label}: no result within 2s`)), 2000); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 function extractLink(body: string, prefix: string, label: string): string {
   const start = body.indexOf(prefix);
   assert.ok(start >= 0, `${label}: real local message does not contain the measured link`);
@@ -311,15 +319,29 @@ test('auth-local-mail', { timeout: 120000 }, async t => {
     const body = { display_name: 'red-check profile', operation_id: operationId, issued_at: issuedAt };
     assert.deepEqual(Object.keys(body).sort(), ['display_name', 'issued_at', 'operation_id'],
       'profile-command-present: request includes caller-controlled identity');
-    const response = await nativeRequest(verifiedClient, '/api/trail-party/profile', {
-      method: 'POST',
-      body: JSON.stringify(body),
+    const profileId = verifiedClient.user()?.id;
+    assert.ok(profileId, 'profile-command-present: verified identity is missing');
+    const stream = await verifiedClient.records('profiles_public').subscribeAll({
+      filters: [{ column: 'id', op: 'equal' as const, value: profileId }],
     });
-    await expectStatus(response, 200, 'profile-command-present');
-    const result = await response.json() as unknown;
-    assertSafeProfile(result, 'profile-command-present');
-    profileCommand = body;
-    profileResult = result;
+    const reader = stream.getReader();
+    try {
+      const response = await nativeRequest(verifiedClient, '/api/trail-party/profile', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      await expectStatus(response, 200, 'profile-command-present');
+      const result = await response.json() as unknown;
+      assertSafeProfile(result, 'profile-command-present');
+      const event = (await bounded(reader.read(), 'profile-command-present SSE')).value as { Insert?: unknown };
+      assert.ok(event && 'Insert' in event, 'profile-command-present: trusted profile insert was not delivered');
+      assertSafeProfile(event.Insert, 'profile-command-present SSE');
+      profileCommand = body;
+      profileResult = result;
+    } finally {
+      await bounded(reader.cancel(), 'profile-command-present SSE cancellation');
+      reader.releaseLock();
+    }
   }, failures);
 
   await runNamedCheck('profile-command-replay-idempotent', async () => {
