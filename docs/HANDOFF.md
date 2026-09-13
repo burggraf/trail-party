@@ -6,7 +6,7 @@ Updated: 2026-09-13. Repo: https://github.com/burggraf/trail-party. Checkout: `~
 
 Owner-authorized global router policy correction remains in effect: `modelThinking` maps `openai-codex/gpt-5.6-luna` to `max` and `openai-codex/gpt-6-astra` to `medium` in `/Users/markb/.pi/agent/codex-router.json`; the explicit thinking override remains authoritative. The owner changed the repeated-approval rule: no per-dispatch approval is required for this bounded, pre-approved Astra review pattern—exact runtime `openai-codex/gpt-6-astra:medium`; fresh, read-only design/security review before P02, P07, P09, P10 and P12; fresh independent post-phase reviews; and final release and concurrency reviews named by the plan. Any other Astra use (implementation, mutation, scout, general advice, or a different model/reasoning level) still requires explicit owner approval. Astra xhigh/max remain prohibited. Luna/max remains the default for implementation and ordinary workers. Actual runtime for this update: provider `openai-codex`, model `gpt-5.6-luna`, reasoning `max`.
 
-The fresh P02 design/security review returned **ready** with `phase_accepted:false`; this is design readiness, not P02 acceptance. The owner authorized P02.T1 implementation. P02.T1 is now parent-accepted complete and P02.C1 passed after the pinned v0.33.14 schema/projection/constraint gates and fresh independent Luna/max review; P02 remains in progress with T3 and C3 pending. P02.T2/C2/C4 are now parent-accepted complete from the current auth evidence and rerun gates; no phase acceptance is claimed. The T1 implementation/evidence is committed in the current P02.T1 commit; router checkout edits remain external/uncommitted. The T2 implementation and dev-mail usability follow-up are committed on `main`; no production publication is claimed.
+The fresh P02 design/security review returned **ready** with `phase_accepted:false`; this is design readiness, not P02 acceptance. The owner authorized P02.T1 implementation. P02.T1 is now parent-accepted complete and P02.C1 passed after the pinned v0.33.14 schema/projection/constraint gates and fresh independent Luna/max review; P02.T1/T2/T3 and P02.C1/C2/C3/C4 are currently recorded complete/passed from the implementation evidence; P02 remains in progress only because the parent-controlled phase review/acceptance decision is pending. No phase acceptance is claimed. The T1 implementation/evidence is committed in the current P02.T1 commit; router checkout edits remain external/uncommitted. The T2 implementation and dev-mail usability follow-up are committed on `main`; no production publication is claimed.
 
 ### Current P02.T2 checkpoint — 2026-09-12
 
@@ -22,7 +22,13 @@ Implementation commit `6c415d87b49b3d1b32adc7d0f2d11ef1dc0f004c` contains the tr
 
 The pinned engine still permits a table-wide SSE handshake before row evaluation; this is retained as an upstream transport limitation, not treated as authorization. Production avatar/device commands, Google, gameplay and P04 full E2E remain pending for their owning gates.
 
-**Next exact action:** obtain the parent-controlled P02 phase review/acceptance decision after consuming the final evidence and residuals. Keep P02 `in_progress` and do not claim phase acceptance until that review is complete.
+### Current P02 review-remediation checkpoint — 2026-09-13
+
+Commit `5c4303f7fcd9fc1f8abbd1ed8246f7c62c827150` addresses the independent review block without expanding P02 scope. Person/host ACLs now require verified native identity; display reads require a live non-completed/non-deleted game; the matrix covers opponent, authenticated-unverified, paired/second display and foreign actors; strict expand denial is asserted; and the game host-event trigger copies all required host columns on update. Profile audit request hashes now use a private persisted 32-byte server HMAC key in `server_secrets`, with restart replay/digest-stability proof in `auth-local-mail`.
+
+Pinned final selectors passed with zero skips: schema `3/3`, auth `2/2`, authorization `1/1`, capabilities `8/8`; local check/lint/unit/build/scaffold/shell/bootstrap/plan/diff gates also passed. Evidence is in `docs/evidence/P02.md` and ignored `.artifacts/p02/p02-review-final-*`. The first bootstrap invocation without the pinned PATH selected the incompatible default binary and is not evidence; the pinned rerun passed `25/25`. Red remediation diagnostics remain in `.artifacts/p02/p02-review-remediation-red/`.
+
+**Next exact action:** consume this remediation evidence in a fresh parent-controlled P02 phase review/acceptance decision. Keep P02 `in_progress`; do not start P03 or claim phase acceptance until that decision is recorded.
 
 ### Current P02.T1 checkpoint — 2026-09-12
 

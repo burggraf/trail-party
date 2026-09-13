@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Obtain the parent-controlled P02 phase review/acceptance decision; keep P02 in_progress and do not claim phase acceptance until that review consumes the trusted event/revocation evidence.",
+  "next_action": "Consume the P02 review-remediation evidence at commit 5c4303f7fcd9fc1f8abbd1ed8246f7c62c827150, obtain the parent-controlled phase review/acceptance decision, and keep P02 in_progress until then.",
   "phases": [
     {
       "id": "P00",
