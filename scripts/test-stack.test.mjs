@@ -32,7 +32,7 @@ test('test-stack rejects production and external Mailpit targets', () => {
   );
 });
 
-test('test-stack verifies an owned child process and port are gone', async () => {
+test('test-stack detects a live orphan and verifies cleanup can be retried', async () => {
   const child = spawn(process.execPath, ['-e', [
     "const net = require('node:net');",
     "const server = net.createServer();",
@@ -55,6 +55,10 @@ test('test-stack verifies an owned child process and port are gone', async () =>
         reject(error);
       });
     });
+    await assert.rejects(
+      waitForOwnedResourcesToStop([child.pid], [port], 'safety-live', 25),
+      /did not stop/u,
+    );
     const closed = new Promise(resolvePromise => child.once('close', resolvePromise));
     child.kill('SIGTERM');
     await closed;

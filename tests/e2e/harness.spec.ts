@@ -17,47 +17,52 @@ test('authorized profile update crosses independent contexts through real SSE', 
   await expect(actors.X.page.getByTestId(`profile-${actors.H.account.id}`)).toHaveCount(0);
   await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
 
-  await actors.X.page.goto('/auth');
-  const outsiderUpdateRequest = actors.X.page.waitForRequest(request =>
-    request.url().includes('/api/trail-party/profile/update') && request.method() === 'POST');
-  await actors.X.page.getByRole('button', { name: 'Edit profile' }).click();
-  await actors.X.page.getByLabel('Display name').fill('Outsider live');
-  await actors.X.page.getByRole('button', { name: 'Save profile' }).click();
-  const outsiderRequest = await outsiderUpdateRequest;
-  const outsiderAuthorization = outsiderRequest.headers().authorization ?? '';
-  expect(outsiderAuthorization).toMatch(/^Bearer /u);
-  await expect(actors.X.page.getByRole('heading', { name: 'Outsider live' })).toBeVisible();
+  const outsiderEditor = await actors.X.context.newPage();
+  try {
+    await signIn(outsiderEditor, actors.X.account);
+    const outsiderUpdateRequest = outsiderEditor.waitForRequest(request =>
+      request.url().includes('/api/trail-party/profile/update') && request.method() === 'POST');
+    await outsiderEditor.goto('/auth');
+    await expect(outsiderEditor.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+    await outsiderEditor.getByRole('button', { name: 'Edit profile' }).click();
+    await outsiderEditor.getByLabel('Display name').fill('Outsider live');
+    await outsiderEditor.getByRole('button', { name: 'Save profile' }).click();
+    const outsiderRequest = await outsiderUpdateRequest;
+    const outsiderAuthorization = outsiderRequest.headers().authorization ?? '';
+    expect(outsiderAuthorization).toMatch(/^Bearer /u);
+    await expect(outsiderEditor.getByRole('heading', { name: 'Outsider live' })).toBeVisible();
 
-  // The private base collection is a valid protected mutation target, but is never exposed by the public API.
-  const forbiddenRead = await actors.X.page.request.get(
-    `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
-    { headers: { authorization: outsiderAuthorization } },
-  );
-  expect(forbiddenRead.status()).toBe(405);
-  const forbiddenUpdate = await actors.X.page.request.patch(
-    `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
-    {
-      headers: { authorization: outsiderAuthorization, 'content-type': 'application/json' },
-      data: { display_name: 'forged outsider write' },
-    },
-  );
-  expect(forbiddenUpdate.status()).toBe(405);
+    // The private base collection is a valid protected mutation target, but is never exposed by the public API.
+    const forbiddenRead = await actors.X.page.request.get(
+      `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
+      { headers: { authorization: outsiderAuthorization } },
+    );
+    expect(forbiddenRead.status()).toBe(405);
+    const forbiddenUpdate = await actors.X.page.request.patch(
+      `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
+      {
+        headers: { authorization: outsiderAuthorization, 'content-type': 'application/json' },
+        data: { display_name: 'forged outsider write' },
+      },
+    );
+    expect(forbiddenUpdate.status()).toBe(405);
 
-  await actors.X.page.goto('/lobby');
-  await expect(actors.X.page.getByTestId(`profile-${actors.H.account.id}`)).toHaveCount(0);
-  await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
-
-  const authorizedUpdateRequest = actors.A1.page.waitForRequest(request =>
-    request.url().includes('/api/trail-party/profile/update') && request.method() === 'POST');
-  await actors.A1.page.getByRole('button', { name: 'Edit profile' }).click();
-  await actors.A1.page.getByLabel('Display name').fill('Alpha one live');
-  await actors.A1.page.getByRole('button', { name: 'Save profile' }).click();
-  await authorizedUpdateRequest;
-  await expect(actors.A1.page.getByRole('heading', { name: 'Alpha one live' })).toBeVisible();
-  await expect(actors.H.page.getByTestId('profile-sse-event')).toHaveText(actors.A1.account.id);
-  await expect(actors.H.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveText('Alpha one live');
-  await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
-  await expect(actors.X.page.getByTestId('profile-sse-event')).toHaveText('');
+    await expect(actors.X.page.getByTestId('profile-sse-event')).toHaveText(actors.X.account.id);
+    const outsiderSseEventBefore = await actors.X.page.getByTestId('profile-sse-event').textContent() ?? '';
+    const authorizedUpdateRequest = actors.A1.page.waitForRequest(request =>
+      request.url().includes('/api/trail-party/profile/update') && request.method() === 'POST');
+    await actors.A1.page.getByRole('button', { name: 'Edit profile' }).click();
+    await actors.A1.page.getByLabel('Display name').fill('Alpha one live');
+    await actors.A1.page.getByRole('button', { name: 'Save profile' }).click();
+    await authorizedUpdateRequest;
+    await expect(actors.A1.page.getByRole('heading', { name: 'Alpha one live' })).toBeVisible();
+    await expect(actors.H.page.getByTestId('profile-sse-event')).toHaveText(actors.A1.account.id);
+    await expect(actors.H.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveText('Alpha one live');
+    await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
+    await expect(actors.X.page.getByTestId('profile-sse-event')).toHaveText(outsiderSseEventBefore);
+  } finally {
+    await outsiderEditor.close();
+  }
 });
 
 test('display actor remains a separate context and does not inherit browser auth', async ({ browser, stack }) => {

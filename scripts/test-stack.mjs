@@ -94,8 +94,8 @@ function processAlive(pid) {
   }
 }
 
-export async function waitForOwnedResourcesToStop(pids, ports, logPath) {
-  const deadline = Date.now() + 5000;
+export async function waitForOwnedResourcesToStop(pids, ports, logPath, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const processesStopped = pids.every(pid => !processAlive(pid));
     const portsFree = (await Promise.all(ports.map(portIsFree))).every(Boolean);
@@ -121,7 +121,14 @@ async function stopProcess(child, closed) {
     await new Promise(resolvePromise => setTimeout(resolvePromise, 25));
   }
   if (child.exitCode === null && child.signalCode === null) signalGroup(child.pid, 'SIGKILL');
-  await closed;
+  if (!closed) return;
+  let timer;
+  await Promise.race([
+    closed,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Owned child ${child.pid} did not close`)), 5000);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 export async function removeOwnedDepot(depot, owner) {
@@ -225,6 +232,23 @@ async function waitFor(url, check, label, logPath) {
   fail(`${label} readiness failed; private diagnostics: ${logPath}; last condition: ${lastError}`);
 }
 
+async function waitForAuthenticated(backend, account, label, logPath) {
+  const deadline = Date.now() + 20_000;
+  let lastError = '';
+  while (Date.now() < deadline) {
+    try {
+      const client = initClient(backend);
+      await client.login(account.email, account.password);
+      await client.records('profiles_public').list({ pagination: { limit: 1 } });
+      return;
+    } catch (error) {
+      lastError = String(error).slice(0, 160);
+    }
+    await new Promise(resolvePromise => setTimeout(resolvePromise, 50));
+  }
+  fail(`${label} readiness failed; private diagnostics: ${logPath}; last condition: ${lastError}`);
+}
+
 function accountRecord(name, marker) {
   return {
     email: `e2e-${name.toLowerCase()}-${marker}@example.invalid`,
@@ -297,20 +321,54 @@ export async function startTestStack() {
   let mailpitLog;
   let trailLog;
   let viteLog;
-  let closed = false;
+  let stopPromise;
+  let depotRemoved = false;
   const stop = async () => {
-    if (closed) return;
-    closed = true;
-    const pids = [vite?.pid, trail?.pid, mailpitChild?.pid].filter(pid => Number.isInteger(pid));
-    await stopProcess(vite, viteClosed);
-    await stopProcess(trail, trailClosed);
-    if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
-    if (mailpitClosed) await mailpitClosed;
-    await waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath);
-    for (const stream of [viteLog, trailLog, mailpitLog]) {
-      if (stream && !stream.destroyed) await new Promise(resolvePromise => stream.end(resolvePromise));
-    }
-    await removeOwnedDepot(depot, owner);
+    if (stopPromise) return stopPromise;
+    stopPromise = (async () => {
+      const pids = [vite?.pid, trail?.pid, mailpitChild?.pid].filter(pid => Number.isInteger(pid));
+      let firstError;
+      const attempt = async action => {
+        try {
+          await action();
+        } catch (error) {
+          firstError ??= error;
+        }
+      };
+
+      await attempt(() => stopProcess(vite, viteClosed));
+      await attempt(() => stopProcess(trail, trailClosed));
+      await attempt(async () => {
+        if (mailpitChild && mailpitChild.exitCode === null && mailpitChild.signalCode === null) mailpitChild.kill('SIGTERM');
+        if (mailpitClosed) await mailpitClosed;
+      });
+
+      let resourcesStopped = false;
+      try {
+        await waitForOwnedResourcesToStop(pids, [4173, backendPort, mailpitPort, smtpPort], trailLogPath);
+        resourcesStopped = true;
+      } catch (error) {
+        firstError ??= error;
+      }
+
+      for (const stream of [viteLog, trailLog, mailpitLog]) {
+        await attempt(async () => {
+          if (stream && !stream.destroyed) await new Promise(resolvePromise => stream.end(resolvePromise));
+        });
+      }
+      if (resourcesStopped && !depotRemoved) {
+        await attempt(async () => {
+          await removeOwnedDepot(depot, owner);
+          depotRemoved = true;
+        });
+      }
+      if (firstError) throw firstError;
+    })();
+    stopPromise = stopPromise.catch(error => {
+      stopPromise = undefined;
+      throw error;
+    });
+    return stopPromise;
   };
   try {
     const baseConfig = await readFile(join(repository, 'backend/config/development.textproto'), 'utf8');
@@ -363,7 +421,12 @@ export async function startTestStack() {
     trail.stdout.pipe(trailLog, { end: false });
     trail.stderr.pipe(trailLog, { end: false });
     trailClosed = new Promise(resolvePromise => trail.once('close', resolvePromise));
-    await waitFor(`${backend}/api/healthcheck`, response => response.ok, 'TrailBase restart', trailLogPath);
+    await waitFor(`${backend}/api/healthcheck`, async response => {
+      if (!response.ok) return false;
+      const ready = await fetch(`${backend}/api/records/v1/${readyApi}/1`);
+      return ready.ok && (await ready.json()).id === 1;
+    }, 'TrailBase restart', trailLogPath);
+    await waitForAuthenticated(backend, accounts.H, 'TrailBase authenticated restart', trailLogPath);
 
     vite = spawn('pnpm', ['exec', 'vite', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], {
       cwd: repository,
@@ -385,7 +448,13 @@ export async function startTestStack() {
     await writeFile(stackFile, JSON.stringify(info, null, 2), { mode: 0o600 });
     return { ...info, close: stop };
   } catch (error) {
-    await stop().catch(() => {});
+    try {
+      await stop();
+    } catch (cleanupError) {
+      const original = error instanceof Error ? error.message : String(error);
+      const cleanup = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      throw new Error(`${original}; owned stack cleanup failed: ${cleanup}`, { cause: cleanupError });
+    }
     throw error;
   }
 }
