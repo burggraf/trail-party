@@ -111,7 +111,7 @@ P01 is complete. P02 remains pending/unstarted with no implementation. Next acti
 
 ## Processes, scope and owner gates
 
-No owned application processes are currently running (dev/native/backend); the last recorded backend port **58214** and shell **4173** were clear, and `.local/test-runs/` was empty. No application process was started for this documentation-only alignment. Never kill an unknown listener or wipe an unmarked directory.
+Current owned development stack: process **proc_2d40** (`pnpm dev`, frontend `5173`, TrailBase `8090`, Mailpit HTTP `52370`, SMTP `52369`) is still running and ready; stop only that managed process when finished. Backend test depots were marker-owned and cleaned after the final runs. Never kill an unknown listener or wipe an unmarked directory.
 
 Reference HEAD unchanged: `442890dda579c6cb108d2f4851816e4388207627`. No source DB access/import or production action. Google OAuth/callbacks, production SMTP/host, signing/updater/Android keys, corpus/license rights and native hardware remain later owner gates. The SDK's upstream notice is retained separately; no project/reference/corpus redistribution license was invented.
 
