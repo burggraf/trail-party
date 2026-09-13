@@ -52,7 +52,7 @@ The owner-approved completion is supported by the parent-controlled native and r
 
 Acceptance-first history: the initial `pnpm test:import` was red because the importer was absent; the summary is `.artifacts/p03/p03-t1-red.log`. The green synthetic suite is `7/7` with zero skips in `.artifacts/p03/p03-t1-import-final.log`. It covers Unicode/newlines, empty/NULL optional values, duplicate `external_id`, malformed required/numeric rows, dry-run, idempotent rerun, source-change rollback and unowned/locked destinations. `pnpm check`, `pnpm lint`, `pnpm test:unit` (`6/6`), `pnpm build`, scaffold (`3/3`), plan (`7/7`) and `git diff --check` also pass; static logs are under `.artifacts/p03/`.
 
-No source snapshot or question corpus is committed. The observed reference count of 591,183 is planning context only. `P03.T2` is complete in the current uncommitted checkpoint: the importer now has a bounded progress barrier, SIGINT rollback/resume proof and manifest counts/distributions. The synthetic suite is `9/9` with zero skips. **Next exact action:** run the exact committed T2 gates, then begin `P03.T3` corpus verification and actual import only in a fresh owned local depot.
+No source snapshot or question corpus is committed. The observed reference count of 591,183 is planning context only. `P03.T2` is complete in commit `201d3c309cf35791f54339a6db460665bff02b20`: the importer now has a bounded progress barrier, SIGINT rollback/resume proof and manifest counts/distributions. The exact committed rerun is `.artifacts/p03/p03-t2-committed-final.log`; the synthetic suite is `9/9` with zero skips. **Next exact action:** begin `P03.T3` corpus verification and actual import only in a fresh owned local depot.
 
 ### Historical continuation and preserved failures
 
