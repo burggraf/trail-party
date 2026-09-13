@@ -182,7 +182,8 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   assert.equal(version.status, 0, `pinned TrailBase executable is required on PATH (${trailCommand})`);
   assert.match(version.stdout, /v0\.33\.14-0-g3f965de7.*\nsqlite: 3\.53\.2/);
   // Verify the required mail sink before creating any owned depot that a failed probe could leak.
-  const mailpitVersion = source === 'auth' ? verifyMailpitVersion() : undefined;
+  const mailEnabled = source !== 'capabilities';
+  const mailpitVersion = mailEnabled ? verifyMailpitVersion() : undefined;
   await mkdir(root, { recursive: true, mode: 0o700 });
   const depot = await mkdtemp(join(root, `${source}-`));
   const marker = randomUUID();
@@ -207,11 +208,11 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   let closing: Promise<void> | undefined;
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
-  const smtpPort = source === 'auth' ? await freePort() : undefined;
-  const mailpitHttpPort = source === 'auth' ? await freePort() : undefined;
+  const smtpPort = mailEnabled ? await freePort() : undefined;
+  const mailpitHttpPort = mailEnabled ? await freePort() : undefined;
   const mailpitBase = mailpitHttpPort === undefined ? undefined : `http://127.0.0.1:${mailpitHttpPort}`;
-  const mailpitDatabase = source === 'auth' ? join(depot, 'mailpit', 'mailpit.db') : undefined;
-  const mailpitLogPath = source === 'auth' ? join(depot, 'mailpit', 'mailpit.log') : undefined;
+  const mailpitDatabase = mailEnabled ? join(depot, 'mailpit', 'mailpit.db') : undefined;
+  const mailpitLogPath = mailEnabled ? join(depot, 'mailpit', 'mailpit.log') : undefined;
   if (mailpitHttpPort === 8025) throw new Error('Owned Mailpit must not use the external Trailhead port 8025');
 
   function cli(args: string[]) {
@@ -403,7 +404,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     const migrationPath = source === 'capabilities' ? 'tests/backend/fixture/migrations' : 'backend/migrations';
     let config = (await readFile(configPath, 'utf8'))
       .replace('__ITEM_API__', apiName).replace('__AUDIT_API__', auditName).replace('__READY_API__', readyName);
-    if (source === 'auth') {
+    if (mailEnabled) {
       config = config
         .replace(/email\s*\{\s*\}/, `email {\n  smtp_host: "127.0.0.1"\n  smtp_port: ${smtpPort}\n  smtp_encryption: SMTP_ENCRYPTION_NONE\n  sender_name: "Trail Party test"\n  sender_address: "trail-party-test@example.invalid"\n}`)
         .replace(/server\s*\{\s*application_name:\s*"Trail Party development"\s*\}/,
@@ -415,8 +416,8 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     await cp('.artifacts/p01-t2/component/probe.wasm', join(depot, 'wasm', 'probe.wasm'));
     if (source === 'auth') {
       await cp('.artifacts/p02-t2/application/profile.wasm', join(depot, 'wasm', 'profile.wasm'));
-      await startMailpit();
     }
+    if (mailEnabled) await startMailpit();
     await start();
     // v0.33.14 user-add SQL references the removed verified column. Use the supported
     // admin API for synthetic baseline accounts; never parse/log bootstrap passwords.
