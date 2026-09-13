@@ -30,11 +30,11 @@ Pinned final selectors passed with zero skips: schema `3/3`, auth `2/2`, authori
 
 ### Current P02 follow-up review checkpoint — 2026-09-13
 
-The fresh independent review report `.artifacts/p02/p02-phase-review.md` identified three remaining gaps: no completion/deletion open-stream barrier, no explicit display host/game consistency predicate in the profile branch, and incomplete foreign-display assertions. Commit `5b81bfeb4f1fc9ceea99da02342eaec70c886868` fixes all three. It adds a third owned synthetic display/game, pre-transition event barriers plus committed post-completion/post-deletion source updates with silence/closure assertions, exact cross-display read/ID isolation, and `d.host_id = g.host_id` in the profile display predicate.
+The fresh independent review report `.artifacts/p02/p02-phase-review.md` identified three remaining gaps: no completion/deletion open-stream barrier, no explicit display host/game consistency predicate in the profile branch, and incomplete foreign-display assertions. Commit `5b81bfeb4f1fc9ceea99da02342eaec70c886868` fixed the first three. It added a third owned synthetic display/game, pre-transition event barriers plus committed post-completion/post-deletion source updates with silence/closure assertions, exact cross-display read/ID isolation, and `d.host_id = g.host_id` in the profile display predicate.
 
-The pinned final selectors and local gates pass with zero skips; evidence is `.artifacts/p02/p02-review2-5b81bfe-*` and `docs/evidence/P02.md`. The prior BLOCK report is retained at `.artifacts/p02/p02-phase-review.md`; it is superseded by the pending fresh follow-up review, not silently treated as a pass.
+The follow-up reviewer then found one remaining proof gap: no exact host direct-read denials and no self-only list ID/count assertions for every paired device. Commit `5223122ab27076ad68753e8a3e63a8a5f7e617b6` adds those assertions for the primary, secondary and tertiary devices/hosts. The pinned final selectors and local gates pass with zero skips; evidence is `.artifacts/p02/p02-review3-5223122-*.log` and `docs/evidence/P02.md`.
 
-**Next exact action:** obtain and consume a fresh parent-controlled follow-up P02 phase review of `5b81bfeb4f1fc9ceea99da02342eaec70c886868`. Keep P02 `in_progress`; do not start P03 or claim phase acceptance until that decision is recorded.
+The prior BLOCK reports are retained at `.artifacts/p02/p02-phase-review.md` and `.artifacts/p02/p02-phase-review-followup.md`; they are review history, not silently treated as a pass. **Next exact action:** obtain and consume a fresh parent-controlled follow-up P02 phase review of `5223122ab27076ad68753e8a3e63a8a5f7e617b6`. Keep P02 `in_progress`; do not start P03 or claim phase acceptance until that decision is recorded.
 
 ### Current P02.T1 checkpoint — 2026-09-12
 

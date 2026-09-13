@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Obtain a fresh parent-controlled P02 follow-up review of commit 5b81bfeb4f1fc9ceea99da02342eaec70c886868, then keep P02 in_progress until that review decides phase acceptance.",
+  "next_action": "Obtain a fresh parent-controlled P02 follow-up review of commit 5223122ab27076ad68753e8a3e63a8a5f7e617b6, then keep P02 in_progress until that review decides phase acceptance.",
   "phases": [
     {
       "id": "P00",
