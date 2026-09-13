@@ -22,6 +22,22 @@ function fail(message) {
   throw new Error(message);
 }
 
+const RESERVED_EXTERNAL_PORTS = new Set(['1025', '8025']);
+
+export function assertSafeTestUrl(value, label = 'target') {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    fail(`Refusing ${label}: URL is invalid or not loopback-owned`);
+  }
+  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1'
+      || RESERVED_EXTERNAL_PORTS.has(parsed.port)) {
+    fail(`Refusing ${label}: only owned 127.0.0.1 HTTP targets are permitted`);
+  }
+  return parsed;
+}
+
 function checkVersion() {
   const trail = spawnSync(trailCommand, ['--version'], { encoding: 'utf8', env: env() });
   if (trail.status !== 0 || !expectedTrail.test(trail.stdout)) {
@@ -78,7 +94,7 @@ function processAlive(pid) {
   }
 }
 
-async function waitForOwnedResourcesToStop(pids, ports, logPath) {
+export async function waitForOwnedResourcesToStop(pids, ports, logPath) {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     const processesStopped = pids.every(pid => !processAlive(pid));
@@ -266,6 +282,9 @@ export async function startTestStack() {
   const backend = `http://127.0.0.1:${backendPort}`;
   const frontend = 'http://127.0.0.1:4173';
   const mailpit = `http://127.0.0.1:${mailpitPort}`;
+  assertSafeTestUrl(backend, 'TrailBase');
+  assertSafeTestUrl(frontend, 'Vite');
+  assertSafeTestUrl(mailpit, 'Mailpit');
   const readyApi = `e2e_ready_${marker.replaceAll('-', '')}`;
   const accounts = Object.fromEntries(['H', 'A1', 'A2', 'B1', 'B2', 'X'].map(name => [name, accountRecord(name, marker)]));
   const signup = { email: `signup-${marker}@example.invalid`, password: randomBytes(24).toString('base64url') };

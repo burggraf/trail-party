@@ -11,6 +11,8 @@ test('authorized profile update crosses independent contexts through real SSE', 
 
   await actors.H.page.goto('/lobby');
   await actors.X.page.goto('/lobby');
+  await expect(actors.H.page.getByTestId('profile-sse-ready')).toHaveText('ready');
+  await expect(actors.X.page.getByTestId('profile-sse-ready')).toHaveText('ready');
   await expect(actors.H.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveText('Alpha one');
   await expect(actors.X.page.getByTestId(`profile-${actors.H.account.id}`)).toHaveCount(0);
   await expect(actors.X.page.getByTestId(`profile-${actors.A1.account.id}`)).toHaveCount(0);
@@ -26,19 +28,20 @@ test('authorized profile update crosses independent contexts through real SSE', 
   expect(outsiderAuthorization).toMatch(/^Bearer /u);
   await expect(actors.X.page.getByRole('heading', { name: 'Outsider live' })).toBeVisible();
 
+  // The private base collection is a valid protected mutation target, but is never exposed by the public API.
   const forbiddenRead = await actors.X.page.request.get(
-    `${stack.frontend}/api/records/v1/profiles_public/${actors.H.account.id}`,
+    `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
     { headers: { authorization: outsiderAuthorization } },
   );
-  expect([400, 403, 404, 405]).toContain(forbiddenRead.status());
+  expect(forbiddenRead.status()).toBe(405);
   const forbiddenUpdate = await actors.X.page.request.patch(
-    `${stack.frontend}/api/records/v1/profiles_public/${actors.H.account.id}`,
+    `${stack.frontend}/api/records/v1/profiles/${actors.H.account.id}`,
     {
       headers: { authorization: outsiderAuthorization, 'content-type': 'application/json' },
       data: { display_name: 'forged outsider write' },
     },
   );
-  expect([400, 403, 404, 405]).toContain(forbiddenUpdate.status());
+  expect(forbiddenUpdate.status()).toBe(405);
 
   await actors.X.page.goto('/lobby');
   await expect(actors.X.page.getByTestId(`profile-${actors.H.account.id}`)).toHaveCount(0);

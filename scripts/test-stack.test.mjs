@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import test from 'node:test';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { removeOwnedDepot } from './test-stack.mjs';
+import { assertSafeTestUrl, removeOwnedDepot, waitForOwnedResourcesToStop } from './test-stack.mjs';
 
 test('test-stack refuses foreign depot cleanup and permits only its marker owner', async () => {
   const root = resolve('.local/test-runs');
@@ -18,4 +19,50 @@ test('test-stack refuses foreign depot cleanup and permits only its marker owner
   await removeOwnedDepot(depot, owner);
   await assert.rejects(() => readFile(depot), /ENOENT/u);
   await rm(depot, { recursive: true, force: true });
+});
+
+test('test-stack rejects production and external Mailpit targets', () => {
+  assert.throws(
+    () => assertSafeTestUrl('https://trivia.azabab.com/', 'production'),
+    /only owned 127\.0\.0\.1 HTTP targets/u,
+  );
+  assert.throws(
+    () => assertSafeTestUrl('http://127.0.0.1:8025/', 'external Mailpit'),
+    /only owned 127\.0\.0\.1 HTTP targets/u,
+  );
+});
+
+test('test-stack verifies an owned child process and port are gone', async () => {
+  const child = spawn(process.execPath, ['-e', [
+    "const net = require('node:net');",
+    "const server = net.createServer();",
+    "server.listen(0, '127.0.0.1', () => console.log(server.address().port));",
+  ].join('')], { stdio: ['ignore', 'pipe', 'inherit'] });
+  try {
+    const port = await new Promise((resolvePromise, reject) => {
+      let output = '';
+      const timer = setTimeout(() => reject(new Error('orphan safety child did not report its port')), 2000);
+      child.stdout.on('data', chunk => {
+        output += chunk.toString();
+        const match = output.match(/(\d+)\n/u);
+        if (match) {
+          clearTimeout(timer);
+          resolvePromise(Number(match[1]));
+        }
+      });
+      child.once('error', error => {
+        clearTimeout(timer);
+        reject(error);
+      });
+    });
+    const closed = new Promise(resolvePromise => child.once('close', resolvePromise));
+    child.kill('SIGTERM');
+    await closed;
+    await waitForOwnedResourcesToStop([child.pid], [port], 'safety-test');
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await new Promise(resolvePromise => child.once('close', resolvePromise));
+    }
+  }
 });
