@@ -46,7 +46,7 @@ function authorizationFixture(req: HttpRequest): HttpResponse {
   catch { throw new HttpError(400, 'Invalid JSON'); }
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Invalid command');
   const value = input as Record<string, unknown>;
-  const validActions = ['update', 'delete', 'member-update', 'member-revoke', 'display-update', 'display-revoke', 'display-complete', 'display-delete'];
+  const validActions = ['update', 'delete', 'member-update', 'member-revoke', 'display-update', 'display-revoke', 'display-complete', 'display-delete', 'display-update-after-delete'];
   if (Object.keys(value).length !== 3 || typeof value.action !== 'string' || !validActions.includes(value.action)
       || typeof value.id !== 'string' || !/^[A-Za-z0-9_-]{22}==$/.test(value.id)
       || typeof value.version !== 'number' || !Number.isSafeInteger(value.version) || value.version < 0) {
@@ -57,6 +57,7 @@ function authorizationFixture(req: HttpRequest): HttpResponse {
   const action = value.action;
   const memberAction = action === 'member-update' || action === 'member-revoke';
   const displayAction = action.startsWith('display-');
+  const displayAfterDelete = action === 'display-update-after-delete';
   const tx = new Transaction();
   let committed = false;
   try {
@@ -67,7 +68,7 @@ function authorizationFixture(req: HttpRequest): HttpResponse {
       )
       : displayAction
         ? tx.query(
-          'SELECT d.version FROM displays AS d JOIN games AS g ON g.id = d.game_id WHERE d.id = base64_url_safe(?1) AND d.host_id = base64_url_safe(?2) AND g.deleted_at IS NULL',
+          `SELECT d.version FROM displays AS d JOIN games AS g ON g.id = d.game_id WHERE d.id = base64_url_safe(?1) AND d.host_id = base64_url_safe(?2) AND g.deleted_at ${displayAfterDelete ? 'IS NOT NULL' : 'IS NULL'}`,
           [id, user.id],
         )
         : tx.query(
@@ -88,6 +89,8 @@ function authorizationFixture(req: HttpRequest): HttpResponse {
               ? tx.execute('UPDATE displays SET revoked_at = unixepoch(), updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
               : action === 'display-update'
                 ? tx.execute('UPDATE displays SET last_seen_at = last_seen_at + 1, updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
+                : action === 'display-update-after-delete'
+                  ? tx.execute('UPDATE displays SET last_seen_at = last_seen_at + 1, updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
                 : action === 'display-complete'
                   ? tx.execute("UPDATE games SET lifecycle = 'completed', roster_locked_at = COALESCE(roster_locked_at, unixepoch()), completed_at = COALESCE(completed_at, unixepoch()), roster_version = roster_version + 1, version = version + 1, updated_at = updated_at + 1 WHERE id = (SELECT game_id FROM displays WHERE id = base64_url_safe(?1)) AND host_id = base64_url_safe(?2) AND deleted_at IS NULL", [id, user.id])
                   : tx.execute('UPDATE games SET deleted_at = unixepoch(), version = version + 1, updated_at = updated_at + 1 WHERE id = (SELECT game_id FROM displays WHERE id = base64_url_safe(?1)) AND host_id = base64_url_safe(?2) AND deleted_at IS NULL', [id, user.id]);
@@ -96,7 +99,7 @@ function authorizationFixture(req: HttpRequest): HttpResponse {
     committed = true;
     return HttpResponse.json({
       action,
-      version: ['update', 'member-update', 'member-revoke', 'display-update', 'display-revoke'].includes(action)
+      version: ['update', 'member-update', 'member-revoke', 'display-update', 'display-revoke', 'display-update-after-delete'].includes(action)
         ? version + 1
         : version,
     });

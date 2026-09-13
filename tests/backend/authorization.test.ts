@@ -114,9 +114,14 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     }
 
     const opponentList = await opponent.records(apiName).list({ pagination: { limit: 100 }, count: true, order: ['id'] });
-    if (memberCanRead) {
+    const opponentCanRead = memberCanRead || apiName === 'games_host' || apiName === 'displays_public';
+    if (opponentCanRead) {
       assert.ok(opponentList.records.length > 0, `authority-forgery ${apiName}: opponent lost permitted scope`);
       for (const value of opponentList.records) assertSafeRow(value, fields, `authority-forgery ${apiName} opponent list`);
+      if (apiName === 'games_host') assert.ok(opponentList.records.every(value => value.id !== hostRows.get('games_public')?.id),
+        `authority-forgery ${apiName}: opponent saw the target host row`);
+      if (apiName === 'displays_public') assert.ok(opponentList.records.every(value => value.id !== hostRows.get('displays_public')?.id),
+        `authority-forgery ${apiName}: opponent saw the target display row`);
     } else {
       assert.equal(opponentList.total_count, 0, `authority-forgery ${apiName}: opponent saw host/device-only row`);
       assert.equal(opponentList.records.length, 0, `authority-forgery ${apiName}: opponent received host/device-only row`);
@@ -237,7 +242,7 @@ test('authority-forgery', { timeout: 120000 }, async t => {
   assert.equal(unchanged.host_id, host.user()?.id, 'authority-forgery: host identity was changed by forged update');
   assert.equal(unchanged.id, targetGameId, 'authority-forgery: game identity was changed by forged update');
 
-  type FixtureAction = 'update' | 'delete' | 'member-update' | 'member-revoke' | 'display-update' | 'display-revoke' | 'display-complete' | 'display-delete';
+  type FixtureAction = 'update' | 'delete' | 'member-update' | 'member-revoke' | 'display-update' | 'display-revoke' | 'display-complete' | 'display-delete' | 'display-update-after-delete';
   const fixtureRequest = (client: typeof host, action: FixtureAction, id: string, version: number) => client.fetch('/__p02/authorization-fixture', {
     method: 'POST',
     body: JSON.stringify({ action, id, version }),
@@ -280,6 +285,8 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     memberReader.releaseLock();
   }
 
+  const fixtureDisplayRow = hostRows.get('displays_public')!;
+  const fixtureDisplayId = fixtureDisplayRow.id as string;
   const secondDisplay = stack.secondDisplayClient;
   assert.ok(secondDisplay, 'authority-forgery: second seeded display client is missing');
   const secondDisplayRows = (await foreignHost.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] })).records;
@@ -288,7 +295,34 @@ test('authority-forgery', { timeout: 120000 }, async t => {
   const secondDisplayId = secondDisplayRow.id as string;
   assertSafeRow(await secondDisplay.records('displays_public').read(secondDisplayId), SAFE_PROJECTIONS.displays_public,
     'authority-forgery second display REST');
-  await fixtureRequest(foreignHost, 'display-complete', secondDisplayId, Number(secondDisplayRow.version));
+  assert.notEqual(secondDisplayId, fixtureDisplayId, 'authority-forgery: paired display listed its foreign display');
+  await assertDenied(
+    () => secondDisplay.records('displays_public').read(fixtureDisplayId),
+    'authority-forgery paired display foreign primary read',
+  );
+  await assertDenied(
+    () => fixtureDisplay.records('displays_public').read(secondDisplayId),
+    'authority-forgery primary display foreign read',
+  );
+
+  const completionStream = await bounded(secondDisplay.records('displays_public').subscribeAll({
+    filters: [{ column: 'id', op: 'equal' as const, value: secondDisplayId }],
+  }), 'authority-forgery completed display SSE');
+  const completionReader = completionStream.getReader();
+  try {
+    const secondDisplayVersion = Number(secondDisplayRow.version);
+    await fixtureRequest(foreignHost, 'display-update', secondDisplayId, secondDisplayVersion);
+    const completionUpdate = (await bounded(completionReader.read(), 'authority-forgery completion display barrier')).value as { Update?: unknown };
+    assert.ok(completionUpdate && 'Update' in completionUpdate, 'authority-forgery completion display barrier missing');
+    assertSafeRow(completionUpdate.Update, SAFE_PROJECTIONS.displays_public, 'authority-forgery completion display barrier');
+
+    await fixtureRequest(foreignHost, 'display-complete', secondDisplayId, secondDisplayVersion + 1);
+    await fixtureRequest(foreignHost, 'display-update', secondDisplayId, secondDisplayVersion + 1);
+    await assertNoSseEvent(completionReader, 'authority-forgery completed display revocation');
+  } finally {
+    await bounded(completionReader.cancel(), 'authority-forgery completion display SSE cancellation');
+    completionReader.releaseLock();
+  }
   await assertDenied(
     () => secondDisplay.records('displays_public').read(secondDisplayId),
     'authority-forgery completed display scope',
@@ -297,18 +331,50 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     () => foreignHost.records('displays_public').read(secondDisplayId),
     'authority-forgery completed host display scope',
   );
-  await fixtureRequest(foreignHost, 'display-delete', secondDisplayId, Number(secondDisplayRow.version));
+
+  const thirdDisplay = stack.thirdDisplayClient;
+  assert.ok(thirdDisplay, 'authority-forgery: third seeded display client is missing');
+  const thirdDisplayRows = (await opponent.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] })).records;
+  assert.equal(thirdDisplayRows.length, 1, 'authority-forgery: third display fixture is not host-scoped');
+  const thirdDisplayRow = thirdDisplayRows[0] as Row;
+  const thirdDisplayId = thirdDisplayRow.id as string;
+  assert.notEqual(thirdDisplayId, fixtureDisplayId, 'authority-forgery: third display host saw the primary display');
+  assert.notEqual(thirdDisplayId, secondDisplayId, 'authority-forgery: third display host saw the second display');
   await assertDenied(
-    () => secondDisplay.records('displays_public').read(secondDisplayId),
+    () => thirdDisplay.records('displays_public').read(fixtureDisplayId),
+    'authority-forgery third display foreign primary read',
+  );
+  await assertDenied(
+    () => thirdDisplay.records('displays_public').read(secondDisplayId),
+    'authority-forgery third display foreign secondary read',
+  );
+
+  const deletionStream = await bounded(thirdDisplay.records('displays_public').subscribeAll({
+    filters: [{ column: 'id', op: 'equal' as const, value: thirdDisplayId }],
+  }), 'authority-forgery deleted display SSE');
+  const deletionReader = deletionStream.getReader();
+  try {
+    const thirdDisplayVersion = Number(thirdDisplayRow.version);
+    await fixtureRequest(opponent, 'display-update', thirdDisplayId, thirdDisplayVersion);
+    const deletionUpdate = (await bounded(deletionReader.read(), 'authority-forgery deletion display barrier')).value as { Update?: unknown };
+    assert.ok(deletionUpdate && 'Update' in deletionUpdate, 'authority-forgery deletion display barrier missing');
+    assertSafeRow(deletionUpdate.Update, SAFE_PROJECTIONS.displays_public, 'authority-forgery deletion display barrier');
+
+    await fixtureRequest(opponent, 'display-delete', thirdDisplayId, thirdDisplayVersion + 1);
+    await fixtureRequest(opponent, 'display-update-after-delete', thirdDisplayId, thirdDisplayVersion + 1);
+    await assertNoSseEvent(deletionReader, 'authority-forgery deleted display revocation');
+  } finally {
+    await bounded(deletionReader.cancel(), 'authority-forgery deletion display SSE cancellation');
+    deletionReader.releaseLock();
+  }
+  await assertDenied(
+    () => thirdDisplay.records('displays_public').read(thirdDisplayId),
     'authority-forgery deleted display scope',
   );
   await assertDenied(
-    () => foreignHost.records('displays_public').read(secondDisplayId),
+    () => opponent.records('displays_public').read(thirdDisplayId),
     'authority-forgery deleted host display scope',
   );
-
-  const fixtureDisplayRow = hostRows.get('displays_public')!;
-  const fixtureDisplayId = fixtureDisplayRow.id as string;
   await assertDenied(
     () => fixtureRequest(foreignHost, 'display-revoke', fixtureDisplayId, Number(fixtureDisplayRow.version)),
     'authority-forgery foreign display revocation',

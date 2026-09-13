@@ -113,7 +113,7 @@ db.create_function('is_uuid', 1, is_uuid)
 db.create_function('is_uuid_v7', 1, is_uuid_v7)
 db.create_function('jsonschema_matches', 2, jsonschema_matches)
 user_ids = [as_bytes(value) for value in sys.argv[2:7]]
-game_id, round_id, team_id, player_a_id, player_b_id, opponent_team_id, opponent_player_id, unverified_player_id, display_id, display2_id, device_user_id, device2_user_id, second_game_id = [as_bytes(value) for value in sys.argv[7:20]]
+game_id, round_id, team_id, player_a_id, player_b_id, opponent_team_id, opponent_player_id, unverified_player_id, display_id, display2_id, device_user_id, device2_user_id, second_game_id, display3_id, device3_user_id, third_game_id = [as_bytes(value) for value in sys.argv[7:23]]
 now = int(time.time())
 try:
     db.execute('BEGIN')
@@ -136,6 +136,10 @@ try:
         "INSERT INTO games (id, host_id, join_code, title, lifecycle) VALUES (?, ?, 'XYZ789', 'Foreign host fixture', 'ready')",
         (second_game_id, user_ids[2]),
     )
+    db.execute(
+        "INSERT INTO games (id, host_id, join_code, title, lifecycle) VALUES (?, ?, 'LMN456', 'Deletion display fixture', 'ready')",
+        (third_game_id, user_ids[3]),
+    )
     db.execute("INSERT INTO rounds (id, game_id, ordinal, title) VALUES (?, ?, 1, 'Round one')", (round_id, game_id))
     db.execute("INSERT INTO game_teams (id, game_id, name) VALUES (?, ?, 'Alpha')", (team_id, game_id))
     db.execute("INSERT INTO game_teams (id, game_id, name) VALUES (?, ?, 'Beta')", (opponent_team_id, game_id))
@@ -153,6 +157,10 @@ try:
     db.execute(
         'INSERT INTO displays (id, device_user_id, host_id, game_id, claimed_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)',
         (display2_id, device2_user_id, user_ids[2], second_game_id, now, now),
+    )
+    db.execute(
+        'INSERT INTO displays (id, device_user_id, host_id, game_id, claimed_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?)',
+        (display3_id, device3_user_id, user_ids[3], third_game_id, now, now),
     )
     db.execute('INSERT INTO online (id, game_id) VALUES (?, ?)', (player_b_id, game_id))
     db.commit()
@@ -385,6 +393,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   let deviceUserId: string | undefined;
   let displayClient: ReturnType<typeof initClient> | undefined;
   let secondDisplayClient: ReturnType<typeof initClient> | undefined;
+  let thirdDisplayClient: ReturnType<typeof initClient> | undefined;
   let unverifiedClient: ReturnType<typeof initClient> | undefined;
   let unverifiedUserId: string | undefined;
   const accountIds: string[] = [];
@@ -442,6 +451,11 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
       secondDisplayClient = secondDevice;
       const device2UserId = secondDevice.user()?.id;
       assert.ok(device2UserId, 'synthetic second anonymous display has no native id');
+      const thirdDevice = initClient(base);
+      await thirdDevice.loginAnonymously();
+      thirdDisplayClient = thirdDevice;
+      const device3UserId = thirdDevice.user()?.id;
+      assert.ok(device3UserId, 'synthetic third anonymous display has no native id');
       const unverified = initClient(base);
       await unverified.loginAnonymously();
       const unverifiedEmail = `unverified-${marker}@example.invalid`;
@@ -478,6 +492,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
         makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), makeV7(), makeV7(),
         makeV7(), makeV7(), Buffer.from(deviceUserId!, 'base64url').toString('hex'),
         Buffer.from(secondDisplayClient!.user()!.id, 'base64url').toString('hex'), makeV7(),
+        makeV7(), Buffer.from(thirdDisplayClient!.user()!.id, 'base64url').toString('hex'), makeV7(),
       ];
       const seed = runSqlite(join(depot, 'data', 'main.db'), seedApplicationFixtures, [...ids, ...fixtureIds]);
       assert.equal(seed.status, 0, `fixture application seed failed; private diagnostics: ${logs}`);
@@ -501,6 +516,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     unverifiedClient,
     displayClient,
     secondDisplayClient,
+    thirdDisplayClient,
     mailpit: source === 'auth' ? {
       base: mailpitBase!,
       smtpPort: smtpPort!,
