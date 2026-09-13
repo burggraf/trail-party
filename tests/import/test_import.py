@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import json
+import signal
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 
 REPOSITORY = Path(__file__).resolve().parents[2]
+IMPORTER = REPOSITORY / "scripts" / "import_questions.py"
 OWNER = f"trail-party-import-v1\n{REPOSITORY}\n"
 class ImportQuestionsTest(unittest.TestCase):
     def setUp(self):
@@ -193,6 +196,54 @@ class ImportQuestionsTest(unittest.TestCase):
         self.assertEqual(second["source_digest"], first["source_digest"])
         self.assertEqual(second["target_digest"], first["target_digest"])
         self.assertEqual(len(self.target_rows()), 3)
+
+    def test_interrupt_rolls_back_and_a_later_process_resumes(self):
+        rows = []
+        for index in range(3000):
+            row = list(self.valid_rows()[index % 3])
+            row[0] = f"q-{index:04d}"
+            rows.append(tuple(row))
+        self.make_source(rows)
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                str(IMPORTER),
+                "--source",
+                str(self.source),
+                "--depot",
+                str(self.depot),
+                "--progress",
+            ],
+            cwd=REPOSITORY,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            first_error_line = process.stderr.readline()
+            self.assertIn('"phase": "import"', first_error_line)
+            process.send_signal(signal.SIGINT)
+            stdout, stderr = process.communicate(timeout=10)
+            self.assertNotEqual(process.returncode, 0, stdout)
+            self.assertIn("interrupted", stderr.lower())
+            self.assertEqual(self.target_rows(), [])
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                process.communicate(timeout=10)
+        resumed = self.report(self.run_import(check=True))
+        self.assertEqual(resumed["imported_count"], 3000)
+        self.assertEqual(resumed["skipped_count"], 0)
+
+    def test_manifest_records_counts_digests_and_distributions(self):
+        self.make_source(self.valid_rows())
+        report = self.report(self.run_import(check=True))
+        manifest = json.loads(Path(report["manifest"]).read_text(encoding="utf-8"))
+        self.assertEqual(manifest["source_snapshot_count"], 3)
+        self.assertEqual(manifest["target_imported_count"], 3)
+        self.assertEqual(manifest["error_count"], 0)
+        self.assertEqual(manifest["distributions"]["difficulty"], {"easy": 1, "hard": 1, "medium": 1})
+        self.assertEqual(manifest["source_digest"], manifest["target_digest"])
 
     def test_invalid_required_or_numeric_values_fail_without_partial_rows(self):
         bad = list(self.valid_rows()[0])

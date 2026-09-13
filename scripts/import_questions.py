@@ -261,7 +261,7 @@ def write_manifest(path: Path, report: dict) -> None:
     os.replace(temporary, path)
 
 
-def import_questions(source: Path, depot: Path, dry_run: bool) -> dict:
+def import_questions(source: Path, depot: Path, dry_run: bool, progress=None) -> dict:
     source = source.expanduser()
     depot = depot.expanduser()
     if not source.is_absolute():
@@ -282,11 +282,15 @@ def import_questions(source: Path, depot: Path, dry_run: bool) -> dict:
             source_count = source_db.execute("SELECT COUNT(*) FROM questions").fetchone()[0]
             source_digest = hashlib.sha256()
             source_ids = []
+            distributions = {"category": {}, "difficulty": {}}
             valid_count = 0
             for batch in source_batches(source_db):
                 valid_count += len(batch)
                 for row in batch:
                     source_ids.append(row[0])
+                    for index, name in ((2, "category"), (4, "difficulty")):
+                        value = row[index]
+                        distributions[name][value] = distributions[name].get(value, 0) + 1
                     payload = dict(zip(TARGET_COLUMNS, row))
                     source_digest.update(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8"))
                     source_digest.update(b"\n")
@@ -320,6 +324,8 @@ def import_questions(source: Path, depot: Path, dry_run: bool) -> dict:
                                     inserts,
                                 )
                                 imported_count += len(inserts)
+                                if progress:
+                                    progress(imported_count)
                     target_db.commit()
                 except BaseException:
                     target_db.rollback()
@@ -335,6 +341,7 @@ def import_questions(source: Path, depot: Path, dry_run: bool) -> dict:
             "source_open_mode": "read-only-backup",
             "dry_run": dry_run,
             "source_count": source_count,
+            "source_snapshot_count": source_count,
             "valid_count": valid_count,
             "rejected_count": 0,
             "imported_count": imported_count,
@@ -343,6 +350,8 @@ def import_questions(source: Path, depot: Path, dry_run: bool) -> dict:
             "target_total_count": target_total_count,
             "source_digest": source_digest_hex,
             "target_digest": target_digest,
+            "error_count": 0,
+            "distributions": distributions,
         }
         if not dry_run:
             write_manifest(manifest, report)
@@ -359,6 +368,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--source", required=True, type=Path, help="PocketBase questions SQLite database")
     parser.add_argument("--depot", required=True, type=Path, help="Owned stopped TrailBase depot")
     parser.add_argument("--dry-run", action="store_true", help="Validate and report without inserting rows")
+    parser.add_argument("--progress", action="store_true", help="Write bounded batch progress to stderr")
     argv = sys.argv[1:]
     if argv[:1] == ["--"]:
         argv = argv[1:]
@@ -373,7 +383,10 @@ def main() -> int:
 
         old_handler = signal.signal(signal.SIGINT, stop)
         try:
-            report = import_questions(args.source, args.depot, args.dry_run)
+            def progress(imported):
+                print(json.dumps({"phase": "import", "imported": imported}, sort_keys=True), file=sys.stderr, flush=True)
+
+            report = import_questions(args.source, args.depot, args.dry_run, progress if args.progress else None)
         finally:
             signal.signal(signal.SIGINT, old_handler)
         print(json.dumps(report, ensure_ascii=False, sort_keys=True))

@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P03.T2: add interruption/rollback/resume, repeat and all-field preservation verification around the synthetic importer; keep the reference database read-only and require fresh evidence.",
+  "next_action": "Begin P03.T3: run dry-run and actual full-corpus import into a fresh owned local depot, then verify counts/digests/distributions and real API retrieval; keep the source read-only and corpus private.",
   "phases": [
     {
       "id": "P00",
@@ -197,7 +197,7 @@
         {
           "id": "P03.T2",
           "title": "Verify interruption, rerun and all-field preservation",
-          "status": "pending"
+          "status": "complete"
         },
         {
           "id": "P03.T3",
