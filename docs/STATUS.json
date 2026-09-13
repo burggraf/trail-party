@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Obtain the fresh independent P04 post-fix review, address any remaining finding, then record parent acceptance before beginning P05; keep the private P03 corpus depot/snapshot local and ignored.",
+  "next_action": "Begin P05.T1: recreate game lifecycle setup; keep the private P03 corpus depot/snapshot local and ignored.",
   "phases": [
     {
       "id": "P00",
@@ -235,7 +235,7 @@
     {
       "id": "P04",
       "title": "Real multi-user test harness before feature expansion",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "P02"
       ],
