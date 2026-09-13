@@ -13,7 +13,7 @@
     "plan:status": "node scripts/plan.mjs status",
     "test:plan": "node --test scripts/plan.test.mjs",
     "test:scaffold": "node --test scripts/scaffold.test.mjs",
-    "dev": "pnpm build:backend:app && node scripts/dev.mjs --with-app-wasm",
+    "dev": "pnpm build:backend:app && node scripts/dev.mjs --with-app-wasm --with-mailpit",
     "test:bootstrap": "node --test --test-timeout=60000 scripts/bootstrap.test.mjs",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint .",

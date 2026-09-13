@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { cp, lstat, mkdir, mkdtemp, open, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
@@ -12,6 +12,8 @@ import { inspectTree, safeDirectory } from './local-paths.mjs';
 
 const repository = resolve(import.meta.dirname, '..');
 const includeAppWasm = process.argv.includes('--with-app-wasm');
+const includeMailpit = process.argv.includes('--with-mailpit');
+const mailpitCommand = process.env.MAILPIT_BIN?.trim() || 'mailpit';
 const owner = `trail-party-dev-v1\n${repository}\n`;
 function port(value) {
   if (!/^[0-9]+$/.test(value) || Number(value) < 1 || Number(value) > 65535) throw new Error('Invalid port: use an integer from 1 to 65535');
@@ -22,6 +24,23 @@ async function portFree(port) {
   try { await new Promise((ok, fail) => server.once('error', fail).listen(port, '127.0.0.1', ok)); }
   catch { throw new Error('Requested loopback port is occupied or unavailable; existing listener left untouched'); }
   await new Promise(ok => server.close(ok));
+}
+async function freePort() {
+  const server = createServer();
+  await new Promise((ok, fail) => server.once('error', fail).listen(0, '127.0.0.1', ok));
+  const address = server.address();
+  await new Promise(ok => server.close(ok));
+  if (!address || typeof address === 'string') throw new Error('Could not allocate an owned loopback port');
+  return address.port;
+}
+export function configureDevMail(config, smtpPort) {
+  if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) throw new Error('Invalid Mailpit SMTP port');
+  const configured = config.replace(
+    /email\s*\{\s*\}/,
+    `email {\n  smtp_host: "127.0.0.1"\n  smtp_port: ${smtpPort}\n  smtp_encryption: SMTP_ENCRYPTION_NONE\n  sender_name: "Trail Party development"\n  sender_address: "trail-party-dev@example.invalid"\n}`,
+  );
+  if (configured === config) throw new Error('Development config must contain an empty email block');
+  return configured;
 }
 function signalGroup(pid, signal) {
   try { process.kill(-pid, signal); } catch (e) { if (e.code !== 'ESRCH') throw e; }
@@ -62,13 +81,27 @@ async function stopBackend(child, closed) {
   while (groupAlive(child.pid) && Date.now() < reaped) await poll(25);
   if (groupAlive(child.pid)) throw new Error('Owned process group did not stop');
 }
+async function stopMailpit(child, closed) {
+  if (!child?.pid) { await closed; return; }
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  const deadline = Date.now() + 5000;
+  while (child.exitCode === null && child.signalCode === null && Date.now() < deadline) await poll(25);
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  await closed;
+}
 
 // Dependency injection is confined to negative acceptance fixtures, not CLI environment switches.
-export async function runDev({ spawnBackend = spawn, createFrontend = async config => (await import('vite')).createServer(config) } = {}) {
+export async function runDev({
+  spawnBackend = spawn,
+  spawnMailpit = spawn,
+  createFrontend = async config => (await import('vite')).createServer(config),
+  startMailpit = false,
+} = {}) {
   const abort = new AbortController();
   const stopped = Promise.withResolvers();
-  let stopping = false, code = 0, stage = 'preflight', logPath;
-  let lock, log, child, closed, frontend, http;
+  let stopping = false, code = 0, stage = 'preflight', logPath, mailpitLogPath;
+  let lock, log, child, closed, mailpitChild, mailpitClosed, mailpitLog, frontend, http;
+  let mailpitBase, mailpitPort, mailpitSmtpPort;
   const requestStop = failure => {
     if (stopping) return;
     stopping = true; code = failure;
@@ -88,6 +121,49 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
     throw new Error(`${label} readiness failed`);
   }
   const get = url => fetch(url, { signal: AbortSignal.any([abort.signal, AbortSignal.timeout(500)]) });
+  async function startOwnedMailpit(depot) {
+    const version = spawnSync(mailpitCommand, ['version', '--no-release-check'], { encoding: 'utf8', env: process.env });
+    if (version.status !== 0 || !/(?:^|\s)mailpit v1\.31\.0(?:\s|$)/i.test(`${version.stdout}\n${version.stderr}`)) {
+      throw new Error('Mailpit v1.31.0 is required on PATH; install the pinned local mail sink before running pnpm dev');
+    }
+    mailpitSmtpPort = await freePort();
+    mailpitPort = await freePort();
+    mailpitBase = `http://127.0.0.1:${mailpitPort}`;
+    const mailpitDir = join(depot, 'mailpit');
+    await mkdir(mailpitDir, { mode: 0o700 });
+    const database = join(mailpitDir, 'mailpit.db');
+    mailpitLogPath = join(mailpitDir, 'mailpit.log');
+    mailpitLog = await open(mailpitLogPath, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
+    mailpitChild = spawnMailpit(mailpitCommand, [
+      '--database', database,
+      '--listen', `127.0.0.1:${mailpitPort}`,
+      '--smtp', `127.0.0.1:${mailpitSmtpPort}`,
+      '--disable-version-check',
+      '--quiet',
+    ], {
+      stdio: ['ignore', mailpitLog.fd, mailpitLog.fd],
+      env: { PATH: process.env.PATH, TMPDIR: process.env.TMPDIR },
+    });
+    mailpitClosed = new Promise(ok => mailpitChild.once('close', ok));
+    mailpitChild.once('error', () => {
+      console.error(`Mailpit spawn failed; private diagnostics: ${mailpitLogPath}`);
+      requestStop(1);
+    });
+    mailpitChild.once('exit', () => {
+      if (!stopping) {
+        console.error(`Mailpit exited unexpectedly; private diagnostics: ${mailpitLogPath}`);
+        requestStop(1);
+      }
+    });
+    await ready(async () => {
+      const response = await get(`${mailpitBase}/readyz`);
+      return response.ok;
+    }, 'Mailpit');
+  }
+  async function closeOwnedMailpit() {
+    await stopMailpit(mailpitChild, mailpitClosed);
+    await mailpitLog?.close();
+  }
   try {
     const backendPort = port(process.env.TRAILBASE_PORT ?? '8090');
     const frontendPort = port(process.env.VITE_PORT ?? '5173');
@@ -121,7 +197,12 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
     logPath = join(runLogs, 'trail.log');
     log = await open(logPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
     const api = `bootstrap_${randomUUID().replaceAll('-', '')}`;
-    const config = (await readFile(join(repository, 'backend/config/development.textproto'), 'utf8')).replace('__READY_API__', api);
+    let config = (await readFile(join(repository, 'backend/config/development.textproto'), 'utf8')).replace('__READY_API__', api);
+    if (startMailpit) {
+      stage = 'mailpit';
+      await startOwnedMailpit(depot);
+      config = configureDevMail(config, mailpitSmtpPort);
+    }
     const configTemp = join(depot, `.config-${randomUUID()}`);
     await writeFile(configTemp, config, { flag: 'wx', mode: 0o600 });
     await rename(configTemp, join(depot, 'config.textproto'));
@@ -166,7 +247,9 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
       return response.ok && (response.headers.get('content-type') ?? '').includes('text/html') && (await response.text()).includes('__sveltekit_dev');
     }, 'Frontend');
     running();
-    console.log(`Ready: ${JSON.stringify({ backend, frontend: front, api, pid: child.pid, log: logPath })}`);
+    const readyInfo = { backend, frontend: front, api, pid: child.pid, log: logPath };
+    if (mailpitBase) Object.assign(readyInfo, { mailpit: mailpitBase, mailpitPort, mailpitSmtpPort });
+    console.log(`Ready: ${JSON.stringify(readyInfo)}`);
     await stopped.promise;
   } catch (error) {
     if (!stopping) {
@@ -213,16 +296,18 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
     });
     const runCleanup = async () => {
       // Each invocation is protected separately: eager argument evaluation must not skip siblings.
-      const [frontendFailure, httpFailure, backendFailure] = await Promise.all([
+      const processFailures = await Promise.all([
         cleanupStep('frontend', () => frontend?.close(), Boolean(frontend)),
         cleanupStep('http', closeHttp, Boolean(http)),
         cleanupStep('backend', () => stopBackend(child, closed), Boolean(child || closed)),
       ]);
+      if (mailpitChild || mailpitClosed || mailpitLog) processFailures.push(await cleanupStep('mailpit', closeOwnedMailpit));
+      const [frontendFailure, httpFailure, backendFailure, mailpitFailure] = processFailures;
       const logFailure = await cleanupStep('log.close', () => log.close(), Boolean(log));
-      const lockFailure = backendFailure
+      const lockFailure = backendFailure || mailpitFailure
         ? await cleanupStep('lock.remove', () => undefined, false)
         : await cleanupStep('lock.remove', () => rm(lock, { recursive: true }), Boolean(lock));
-      const failures = [frontendFailure, httpFailure, backendFailure, logFailure, lockFailure].filter(Boolean);
+      const failures = [frontendFailure, httpFailure, backendFailure, mailpitFailure, logFailure, lockFailure].filter(Boolean);
       if (failures.length) code = 1;
       if (failures.length && logPath) {
         const payload = JSON.stringify({ operations: diagnostics }, null, 2);
@@ -240,4 +325,4 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
   }
   return code;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await runDev();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await runDev({ startMailpit: includeMailpit });

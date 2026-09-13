@@ -2,7 +2,7 @@
 
 A learning project recreating [Trivia Party](https://trivia.azabab.com/) using **TrailBase v0.33.14**, **Svelte**, **shadcn-svelte/Tailwind**, and **Tauri**.
 
-**Current state: shared shell and backend contract probes.** The static SvelteKit app has landing/role-entry previews, persistent themes and a browser/native `/display` route. Accounts, pairing, gameplay and question import are **not implemented**. The tested shell is not functional game parity; STATUS/evidence track the remaining work.
+**Current state: shared shell plus a local native email-auth/profile slice.** The static SvelteKit app has landing/role-entry previews, persistent themes, `/auth`, authenticated profile creation and a browser/native `/display` route. Pairing, lobby, gameplay and question import are **not implemented**. The tested shell/auth slice is not functional game parity; STATUS/evidence track the remaining work.
 
 ## Continue development
 
@@ -21,13 +21,14 @@ Tested toolchain: Node 26.7.0, pnpm 11.22.0, Rust 1.91.1, installed Google Chrom
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev                         # browser: http://127.0.0.1:5173
+pnpm dev                         # browser: http://127.0.0.1:5173; prints owned Mailpit inbox URL
 pnpm check && pnpm lint && pnpm test:unit && pnpm build
 pnpm test:scaffold
 pnpm test:shell                  # built static app; installed Chrome, isolated profiles
 pnpm test:backend -- capabilities # real pinned TrailBase, owned throwaway depot
 cargo build --locked --manifest-path src-tauri/Cargo.toml
 pnpm tauri dev --no-watch        # owns a dev server; stop pnpm dev first
+# Open the printed Mailpit URL to click verification/reset links; no TrailBase admin login is needed.
 ```
 
 Playwright is the committed browser-test runner; local Chromium checks use `channel: 'chrome'`, not a personal profile or another browser download. Seven isolated contexts can run together; full-game actors will log in separately through the UI. Shell checks currently prove only navigation, theme persistence/isolation and browser-safe rendering. See [the testing contract](docs/TESTING.md). Native window smoke is separate from browser tests; packaged/native gameplay acceptance comes later.

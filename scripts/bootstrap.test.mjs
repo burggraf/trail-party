@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as poll } from 'node:timers/promises';
 import test from 'node:test';
+import { initClient } from 'trailbase';
 
 const repo = resolve(import.meta.dirname, '..');
 const devRoot = join(repo, '.local/dev');
@@ -47,9 +48,9 @@ async function workspace(t) {
   });
   return path;
 }
-async function launch(t, depot, extra = {}, script = launcher, { ipc = false } = {}) {
+async function launch(t, depot, extra = {}, script = launcher, { ipc = false, args = [] } = {}) {
   const [backend, frontend] = await ports();
-  const child = spawn(process.execPath, [script], {
+  const child = spawn(process.execPath, [script, ...args], {
     cwd: repo, detached: true,
     env: { ...process.env, TRAIL_PARTY_DEPOT: depot, TRAILBASE_PORT: String(backend), VITE_PORT: String(frontend), ...extra },
     stdio: ['ignore', 'pipe', 'pipe', ...(ipc ? ['ipc'] : [])],
@@ -221,6 +222,29 @@ test('cleanup ownership retains lock for persistent signal-zero probe denial', {
 
 test('cleanup ownership retains lock for real signal-send denial', { concurrency: false }, async t => {
   await cleanupProbeCase(t, 'cleanup-signal-denied');
+});
+
+test('mail-enabled dev stack exposes an owned local inbox without admin credentials', async t => {
+  const depot = await workspace(t);
+  const run = await launch(t, depot, {}, launcher, { args: ['--with-mailpit'] });
+  const ready = await run.ready();
+  assert.match(ready.mailpit, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal((await fetch(`${ready.mailpit}/readyz`)).status, 200);
+  assert.equal((await fetch(`${ready.mailpit}/api/v1/info`)).status, 200);
+  assert.ok(Number.isInteger(ready.mailpitSmtpPort));
+  const email = `dev-${randomUUID()}@example.invalid`;
+  const password = `P-${randomUUID()}-a1`;
+  const client = initClient(ready.backend);
+  await client.register({ email, password, passwordRepeat: password });
+  const messages = await until(async () => {
+    const response = await fetch(`${ready.mailpit}/api/v1/messages?start=0&limit=100`);
+    const payload = await response.json();
+    return payload.messages?.filter(message => message.To?.some(address => address.Address === email));
+  }, 'dev stack did not capture the verification email', 10000);
+  assert.equal(messages.length, 1);
+  await run.stop();
+  assert.equal(run.code(), 0);
+  await assertFree(run.backend, run.frontend, ready.mailpitPort, ready.mailpitSmtpPort);
 });
 
 test('real stack proves schema/instance + /display, private logs, persistent SQLite restart and normal stop', async t => {
