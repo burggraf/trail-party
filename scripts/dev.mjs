@@ -130,7 +130,7 @@ export async function runDev({
     mailpitPort = await freePort();
     mailpitBase = `http://127.0.0.1:${mailpitPort}`;
     const mailpitDir = join(depot, 'mailpit');
-    await mkdir(mailpitDir, { mode: 0o700 });
+    await mkdir(mailpitDir, { mode: 0o700, recursive: true });
     const database = join(mailpitDir, 'mailpit.db');
     mailpitLogPath = join(mailpitDir, 'mailpit.log');
     mailpitLog = await open(mailpitLogPath, constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | constants.O_NOFOLLOW, 0o600);
@@ -254,7 +254,9 @@ export async function runDev({
   } catch (error) {
     if (!stopping) {
       // Preflight uses our fixed messages; backend/Vite errors never expose raw subprocess output.
-      console.error(stage === 'preflight' ? (error.code ? 'Local setup refused: unsafe or inaccessible path' : error.message) : `${stage} startup/readiness failed; private diagnostics: ${logPath}`);
+      if (stage === 'preflight') console.error(error.code ? 'Local setup refused: unsafe or inaccessible path' : error.message);
+      else if (stage === 'mailpit') console.error(`mailpit startup/readiness failed: ${error instanceof Error ? error.message : String(error)}; private diagnostics: ${logPath}`);
+      else console.error(`${stage} startup/readiness failed; private diagnostics: ${logPath}`);
       requestStop(1);
     }
   } finally {

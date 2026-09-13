@@ -226,8 +226,8 @@ test('cleanup ownership retains lock for real signal-send denial', { concurrency
 
 test('mail-enabled dev stack exposes an owned local inbox without admin credentials', async t => {
   const depot = await workspace(t);
-  const run = await launch(t, depot, {}, launcher, { args: ['--with-mailpit'] });
-  const ready = await run.ready();
+  const first = await launch(t, depot, {}, launcher, { args: ['--with-mailpit'] });
+  const ready = await first.ready();
   assert.match(ready.mailpit, /^http:\/\/127\.0\.0\.1:\d+$/);
   assert.equal((await fetch(`${ready.mailpit}/readyz`)).status, 200);
   assert.equal((await fetch(`${ready.mailpit}/api/v1/info`)).status, 200);
@@ -242,9 +242,15 @@ test('mail-enabled dev stack exposes an owned local inbox without admin credenti
     return payload.messages?.filter(message => message.To?.some(address => address.Address === email));
   }, 'dev stack did not capture the verification email', 10000);
   assert.equal(messages.length, 1);
-  await run.stop();
-  assert.equal(run.code(), 0);
-  await assertFree(run.backend, run.frontend, ready.mailpitPort, ready.mailpitSmtpPort);
+  await first.stop();
+  assert.equal(first.code(), 0);
+  await assertFree(first.backend, first.frontend, ready.mailpitPort, ready.mailpitSmtpPort);
+  const second = await launch(t, depot, {}, launcher, { args: ['--with-mailpit'] });
+  const restarted = await second.ready();
+  assert.equal((await fetch(`${restarted.mailpit}/readyz`)).status, 200);
+  await second.stop();
+  assert.equal(second.code(), 0);
+  await assertFree(second.backend, second.frontend, restarted.mailpitPort, restarted.mailpitSmtpPort);
 });
 
 test('real stack proves schema/instance + /display, private logs, persistent SQLite restart and normal stop', async t => {
