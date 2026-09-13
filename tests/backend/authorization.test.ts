@@ -293,10 +293,18 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     () => secondDisplay.records('displays_public').read(secondDisplayId),
     'authority-forgery completed display scope',
   );
+  await assertDenied(
+    () => foreignHost.records('displays_public').read(secondDisplayId),
+    'authority-forgery completed host display scope',
+  );
   await fixtureRequest(foreignHost, 'display-delete', secondDisplayId, Number(secondDisplayRow.version));
   await assertDenied(
     () => secondDisplay.records('displays_public').read(secondDisplayId),
     'authority-forgery deleted display scope',
+  );
+  await assertDenied(
+    () => foreignHost.records('displays_public').read(secondDisplayId),
+    'authority-forgery deleted host display scope',
   );
 
   const fixtureDisplayRow = hostRows.get('displays_public')!;
