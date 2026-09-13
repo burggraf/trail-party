@@ -371,6 +371,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
   process.once('SIGINT', onSignal);
   process.once('SIGHUP', onSignal);
   let deviceUserId: string | undefined;
+  let displayClient: ReturnType<typeof initClient> | undefined;
   const profileIds: string[] = [];
   try {
     const configPath = source === 'capabilities' ? 'tests/backend/fixture/config.textproto' : 'backend/config/development.textproto';
@@ -416,9 +417,9 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     if (source === 'backend') {
       const device = initClient(base);
       await device.loginAnonymously();
+      displayClient = device;
       deviceUserId = device.user()?.id;
       assert.ok(deviceUserId, 'synthetic anonymous display has no native id');
-      await device.logout();
       await stop();
       const ids = profileIds.map(id => Buffer.from(id, 'base64url').toString('hex'));
       const makeV7 = () => {
@@ -467,6 +468,7 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
       version: mailpitVersion!,
     } : undefined,
     deviceUserId,
+    displayClient,
     close,
     restart: async () => { await stop(); await start(); },
     offlineSqlite,

@@ -33,6 +33,71 @@ function increment(req: HttpRequest): HttpResponse {
   }
 }
 
+// This endpoint is loaded only into an owned backend test depot. It is a trusted
+// fixture mutation for proving safe Record SSE update/delete bytes; it is not an
+// application/game handler.
+function authorizationFixture(req: HttpRequest): HttpResponse {
+  const user = req.user();
+  if (!user) throw new HttpError(401, 'Authentication required');
+  const body = req.body();
+  if (!body || body.byteLength > 1024) throw new HttpError(400, 'Invalid body');
+  let input: unknown;
+  try { input = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(body)); }
+  catch { throw new HttpError(400, 'Invalid JSON'); }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new HttpError(400, 'Invalid command');
+  const value = input as Record<string, unknown>;
+  const validActions = ['update', 'delete', 'member-update', 'member-revoke', 'display-update', 'display-revoke'];
+  if (Object.keys(value).length !== 3 || typeof value.action !== 'string' || !validActions.includes(value.action)
+      || typeof value.id !== 'string' || !/^[A-Za-z0-9_-]{22}==$/.test(value.id)
+      || typeof value.version !== 'number' || !Number.isSafeInteger(value.version) || value.version < 0) {
+    throw new HttpError(400, 'Invalid command');
+  }
+  const id = value.id;
+  const version = value.version;
+  const action = value.action;
+  const memberAction = action === 'member-update' || action === 'member-revoke';
+  const displayAction = action === 'display-update' || action === 'display-revoke';
+  const tx = new Transaction();
+  let committed = false;
+  try {
+    const rows = memberAction
+      ? tx.query(
+        'SELECT gp.version FROM game_players AS gp JOIN games AS g ON g.id = gp.game_id WHERE gp.id = base64_url_safe(?1) AND g.host_id = base64_url_safe(?2) AND g.deleted_at IS NULL',
+        [id, user.id],
+      )
+      : displayAction
+        ? tx.query(
+          'SELECT d.version FROM displays AS d JOIN games AS g ON g.id = d.game_id WHERE d.id = base64_url_safe(?1) AND d.host_id = base64_url_safe(?2) AND g.deleted_at IS NULL',
+          [id, user.id],
+        )
+        : tx.query(
+          'SELECT o.version FROM online AS o JOIN games AS g ON g.id = o.game_id WHERE o.id = base64_url_safe(?1) AND g.host_id = base64_url_safe(?2) AND g.deleted_at IS NULL',
+          [id, user.id],
+        );
+    if (rows.length !== 1) throw new HttpError(403, 'Fixture mutation denied');
+    if (Number(rows[0][0]) !== version) throw new HttpError(409, 'Version conflict');
+    const changed = action === 'update'
+      ? tx.execute("UPDATE online SET visibility = CASE visibility WHEN 'visible' THEN 'hidden' ELSE 'visible' END, last_seen_at = last_seen_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2", [id, version])
+      : action === 'delete'
+        ? tx.execute('DELETE FROM online WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
+        : action === 'member-revoke'
+          ? tx.execute('UPDATE game_players SET left_at = unixepoch(), updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
+          : action === 'member-update'
+            ? tx.execute('UPDATE game_players SET updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
+            : action === 'display-revoke'
+              ? tx.execute('UPDATE displays SET revoked_at = unixepoch(), updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version])
+              : tx.execute('UPDATE displays SET last_seen_at = last_seen_at + 1, updated_at = updated_at + 1, version = version + 1 WHERE id = base64_url_safe(?1) AND version = ?2', [id, version]);
+    if (changed !== 1) throw new HttpError(409, 'Version conflict');
+    tx.commit();
+    committed = true;
+    return HttpResponse.json({ action, version: action === 'delete' ? version : version + 1 });
+  } catch (error) {
+    if (!committed) tx.rollback();
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(409, 'Fixture mutation rejected');
+  }
+}
+
 // This endpoint is loaded only into an owned backend test depot. It probes the
 // pinned embedded SQLite connection; it is not an application/game handler.
 function deferredPartnerProbe(req: HttpRequest): HttpResponse {
@@ -100,6 +165,7 @@ function deferredPartnerProbe(req: HttpRequest): HttpResponse {
 export const { initEndpoint, incomingHandler, sqliteFunctionEndpoint } = defineConfig({
   httpHandlers: [
     HttpHandler.post('/__capabilities/increment', increment),
+    HttpHandler.post('/__p02/authorization-fixture', authorizationFixture),
     HttpHandler.post('/__p02/deferred-partner-probe', deferredPartnerProbe),
   ],
 });

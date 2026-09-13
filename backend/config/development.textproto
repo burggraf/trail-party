@@ -67,7 +67,7 @@ record_apis {
 
 record_apis {
   name: "displays_public"
-  table_name: "displays_public"
+  table_name: "displays_public_events"
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100

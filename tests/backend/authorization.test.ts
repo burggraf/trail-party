@@ -45,6 +45,15 @@ async function bounded<T>(promise: Promise<T>, label: string): Promise<T> {
   ]).finally(() => clearTimeout(timer));
 }
 
+async function assertNoSseEvent(reader: ReadableStreamDefaultReader<unknown>, label: string) {
+  let timer: ReturnType<typeof setTimeout>;
+  const result = await Promise.race([
+    reader.read(),
+    new Promise<'timeout'>(resolve => { timer = setTimeout(() => resolve('timeout'), 2000); }),
+  ]).finally(() => clearTimeout(timer));
+  if (result !== 'timeout') assert.equal(result.done, true, `${label}: revoked stream delivered an event`);
+}
+
 test('authority-forgery', { timeout: 120000 }, async t => {
   const stack = await startStack({ source: 'backend' });
   t.after(() => stack.close());
@@ -63,7 +72,7 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     game_teams_public_events: SAFE_PROJECTIONS.game_teams,
     game_players_public_events: SAFE_PROJECTIONS.game_players,
     game_state_public: SAFE_PROJECTIONS.game_state_public,
-    displays_public: SAFE_PROJECTIONS.displays_public,
+    displays_public_events: SAFE_PROJECTIONS.displays_public,
     online: SAFE_PROJECTIONS.online,
   };
   const objects = stack.schemaSnapshot() as Array<{ name?: string; columns?: unknown[] }>;
@@ -193,6 +202,97 @@ test('authority-forgery', { timeout: 120000 }, async t => {
   const unchanged = await host.records('games_host').read(targetGameId);
   assert.equal(unchanged.host_id, host.user()?.id, 'authority-forgery: host identity was changed by forged update');
   assert.equal(unchanged.id, targetGameId, 'authority-forgery: game identity was changed by forged update');
+
+  type FixtureAction = 'update' | 'delete' | 'member-update' | 'member-revoke' | 'display-update' | 'display-revoke';
+  const fixtureRequest = (client: typeof host, action: FixtureAction, id: string, version: number) => client.fetch('/__p02/authorization-fixture', {
+    method: 'POST',
+    body: JSON.stringify({ action, id, version }),
+  });
+  const fixtureOnline = hostRows.get('online')!;
+  const fixtureOnlineId = fixtureOnline.id as string;
+  await assertDenied(
+    () => fixtureRequest(foreignHost, 'update', fixtureOnlineId, Number(fixtureOnline.version)),
+    'authority-forgery foreign trusted fixture mutation',
+  );
+  await assertDenied(
+    () => fixtureRequest(anonymous as typeof host, 'update', fixtureOnlineId, Number(fixtureOnline.version)),
+    'authority-forgery anonymous trusted fixture mutation',
+  );
+
+  const memberRows = (await host.records('game_players').list({ pagination: { limit: 100 }, order: ['id'] })).records;
+  const memberPlayer = memberRows.find(row => row.user_id === member.user()?.id);
+  assert.ok(memberPlayer, 'authority-forgery: member fixture row is missing');
+  const memberPlayerId = memberPlayer.id as string;
+  const memberPlayerVersion = Number(memberPlayer.version);
+  await assertDenied(
+    () => fixtureRequest(foreignHost, 'member-revoke', memberPlayerId, memberPlayerVersion),
+    'authority-forgery foreign membership revocation',
+  );
+  const memberStream = await bounded(member.records('game_players').subscribeAll({
+    filters: [{ column: 'id', op: 'equal' as const, value: memberPlayerId }],
+  }), 'authority-forgery membership SSE');
+  const memberReader = memberStream.getReader();
+  try {
+    await fixtureRequest(host, 'member-update', memberPlayerId, memberPlayerVersion);
+    const membershipUpdate = (await bounded(memberReader.read(), 'authority-forgery membership update SSE')).value as { Update?: unknown };
+    assert.ok(membershipUpdate && 'Update' in membershipUpdate, 'authority-forgery membership update event missing');
+    assertSafeRow(membershipUpdate.Update, SAFE_PROJECTIONS.game_players, 'authority-forgery membership update SSE');
+
+    await fixtureRequest(host, 'member-revoke', memberPlayerId, memberPlayerVersion + 1);
+    await fixtureRequest(host, 'member-update', memberPlayerId, memberPlayerVersion + 2);
+    await assertNoSseEvent(memberReader, 'authority-forgery membership revocation');
+  } finally {
+    await bounded(memberReader.cancel(), 'authority-forgery membership SSE cancellation');
+    memberReader.releaseLock();
+  }
+
+  const fixtureDisplay = stack.displayClient;
+  assert.ok(fixtureDisplay, 'authority-forgery: seeded display client is missing');
+  const fixtureDisplayRow = hostRows.get('displays_public')!;
+  const fixtureDisplayId = fixtureDisplayRow.id as string;
+  await assertDenied(
+    () => fixtureRequest(foreignHost, 'display-revoke', fixtureDisplayId, Number(fixtureDisplayRow.version)),
+    'authority-forgery foreign display revocation',
+  );
+  const displayStream = await bounded(fixtureDisplay.records('displays_public').subscribeAll({
+    filters: [{ column: 'id', op: 'equal' as const, value: fixtureDisplayId }],
+  }), 'authority-forgery display SSE');
+  const displayReader = displayStream.getReader();
+  try {
+    await fixtureRequest(host, 'display-update', fixtureDisplayId, Number(fixtureDisplayRow.version));
+    const displayUpdate = (await bounded(displayReader.read(), 'authority-forgery display update SSE')).value as { Update?: unknown };
+    assert.ok(displayUpdate && 'Update' in displayUpdate, 'authority-forgery display update event missing');
+    assertSafeRow(displayUpdate.Update, SAFE_PROJECTIONS.displays_public, 'authority-forgery display update SSE');
+
+    await fixtureRequest(host, 'display-revoke', fixtureDisplayId, Number(fixtureDisplayRow.version) + 1);
+    await fixtureRequest(host, 'display-update', fixtureDisplayId, Number(fixtureDisplayRow.version) + 2);
+    await assertNoSseEvent(displayReader, 'authority-forgery display revocation');
+  } finally {
+    await bounded(displayReader.cancel(), 'authority-forgery display SSE cancellation');
+    displayReader.releaseLock();
+  }
+
+  const eventStream = await bounded(host.records('online').subscribeAll({
+    filters: [{ column: 'id', op: 'equal' as const, value: fixtureOnlineId }],
+  }), 'authority-forgery trusted mutation SSE');
+  const eventReader = eventStream.getReader();
+  try {
+    await fixtureRequest(host, 'update', fixtureOnlineId, Number(fixtureOnline.version));
+    const updateEvent = (await bounded(eventReader.read(), 'authority-forgery trusted update SSE')).value as { Update?: unknown };
+    assert.ok(updateEvent && 'Update' in updateEvent, 'authority-forgery trusted update event missing');
+    assertSafeRow(updateEvent.Update, SAFE_PROJECTIONS.online, 'authority-forgery trusted update SSE');
+    assert.equal(JSON.stringify(updateEvent).includes('PRIVATE_'), false,
+      'authority-forgery trusted update event leaked a private sentinel');
+
+    await fixtureRequest(host, 'delete', fixtureOnlineId, Number(fixtureOnline.version) + 1);
+    const deleteEvent = (await bounded(eventReader.read(), 'authority-forgery trusted delete SSE')).value as { Delete?: Row };
+    assert.equal(deleteEvent.Delete?.id, fixtureOnlineId, 'authority-forgery trusted delete event missing');
+    assert.equal(JSON.stringify(deleteEvent).includes('PRIVATE_'), false,
+      'authority-forgery trusted delete event leaked a private sentinel');
+  } finally {
+    await bounded(eventReader.cancel(), 'authority-forgery trusted mutation SSE cancellation');
+    eventReader.releaseLock();
+  }
 
   const state = hostRows.get('game_state_public')!;
   for (const secret of ['correct_label', 'source_label', 'grade', 'points', 'answer_key', 'score', 'source_id']) {

@@ -62,6 +62,16 @@ CREATE TABLE game_players_public_events (
   updated_at INTEGER NOT NULL
 ) STRICT;
 
+CREATE TABLE displays_public_events (
+  id BLOB PRIMARY KEY NOT NULL CHECK (is_uuid_v7(id)),
+  game_id BLOB CHECK (game_id IS NULL OR is_uuid_v7(game_id)),
+  host_id BLOB CHECK (host_id IS NULL OR is_uuid(host_id)),
+  claim_version INTEGER NOT NULL CHECK (claim_version >= 0),
+  settings TEXT NOT NULL,
+  version INTEGER NOT NULL CHECK (version >= 0),
+  updated_at INTEGER NOT NULL CHECK (updated_at >= 0)
+) STRICT;
+
 INSERT INTO profiles_public_events (id, display_name, avatar_mime, avatar_revision, version, updated_at)
   SELECT id, display_name, avatar_mime, avatar_revision, version, updated_at FROM profiles;
 INSERT INTO games_public_events (id, title, location, starts_at, duration_minutes, lifecycle, roster_locked_at, roster_version, version, updated_at)
@@ -72,6 +82,8 @@ INSERT INTO game_teams_public_events (id, game_id, name, version, updated_at)
   SELECT id, game_id, name, version, updated_at FROM game_teams WHERE deleted_at IS NULL;
 INSERT INTO game_players_public_events (id, game_id, user_id, team_id, left_at, version, updated_at)
   SELECT id, game_id, user_id, team_id, left_at, version, updated_at FROM game_players;
+INSERT INTO displays_public_events (id, game_id, host_id, claim_version, settings, version, updated_at)
+  SELECT id, game_id, host_id, claim_version, settings, version, updated_at FROM displays;
 
 CREATE TRIGGER profiles_public_events_insert
 AFTER INSERT ON profiles
@@ -182,7 +194,33 @@ BEGIN
   DELETE FROM game_players_public_events WHERE id = OLD.id;
 END;
 
+CREATE TRIGGER displays_public_events_insert
+AFTER INSERT ON displays
+FOR EACH ROW
+BEGIN
+  INSERT INTO displays_public_events (id, game_id, host_id, claim_version, settings, version, updated_at)
+  VALUES (NEW.id, NEW.game_id, NEW.host_id, NEW.claim_version, NEW.settings, NEW.version, NEW.updated_at);
+END;
+
+CREATE TRIGGER displays_public_events_update
+AFTER UPDATE ON displays
+FOR EACH ROW
+BEGIN
+  UPDATE displays_public_events
+  SET game_id = NEW.game_id, host_id = NEW.host_id, claim_version = NEW.claim_version,
+      settings = NEW.settings, version = NEW.version, updated_at = NEW.updated_at
+  WHERE id = OLD.id;
+END;
+
+CREATE TRIGGER displays_public_events_delete
+AFTER DELETE ON displays
+FOR EACH ROW
+BEGIN
+  DELETE FROM displays_public_events WHERE id = OLD.id;
+END;
+
 CREATE INDEX games_public_events_host ON games_public_events(id);
 CREATE INDEX games_host_events_host ON games_host_events(host_id, id);
 CREATE INDEX game_teams_public_events_game ON game_teams_public_events(game_id, id);
 CREATE INDEX game_players_public_events_game ON game_players_public_events(game_id, id);
+CREATE INDEX displays_public_events_game ON displays_public_events(game_id, id);
