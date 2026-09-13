@@ -24,11 +24,17 @@ The pinned engine still permits a table-wide SSE handshake before row evaluation
 
 ### Current P02 review-remediation checkpoint — 2026-09-13
 
-Commit `65e831056a7cf9464149583fe478d619ada35e45` addresses the independent review block without expanding P02 scope. Person/host ACLs now require verified native identity; display reads require a live non-completed/non-deleted game; the matrix covers opponent, authenticated-unverified, paired/second display and foreign actors; strict expand denial is asserted; and the game host-event trigger copies all required host columns on update. Profile audit request hashes now use a private persisted 32-byte server HMAC key in `server_secrets`, with restart replay/digest-stability proof in `auth-local-mail`.
+Commit `65e831056a7cf9464149583fe478d619ada35e45` addresses the first independent review block without expanding P02 scope. Person/host ACLs now require verified native identity; display reads require a live non-completed/non-deleted game; the matrix covers opponent, authenticated-unverified, paired/second display and foreign actors; strict expand denial is asserted; and the game host-event trigger copies all required host columns on update. Profile audit request hashes now use a private persisted 32-byte server HMAC key in `server_secrets`, with restart replay/digest-stability proof in `auth-local-mail`.
 
 Pinned final selectors passed with zero skips: schema `3/3`, auth `2/2`, authorization `1/1`, capabilities `8/8`; local check/lint/unit/build/scaffold/shell/bootstrap/plan/diff gates also passed. Evidence is in `docs/evidence/P02.md` and ignored `.artifacts/p02/p02-review-final-65e8310-*`. The first bootstrap invocation without the pinned PATH selected the incompatible default binary and is not evidence; the pinned rerun passed `25/25`. Red remediation diagnostics remain in `.artifacts/p02/p02-review-remediation-red/`.
 
-**Next exact action:** consume this remediation evidence in a fresh parent-controlled P02 phase review/acceptance decision. Keep P02 `in_progress`; do not start P03 or claim phase acceptance until that decision is recorded.
+### Current P02 follow-up review checkpoint — 2026-09-13
+
+The fresh independent review report `.artifacts/p02/p02-phase-review.md` identified three remaining gaps: no completion/deletion open-stream barrier, no explicit display host/game consistency predicate in the profile branch, and incomplete foreign-display assertions. Commit `5b81bfeb4f1fc9ceea99da02342eaec70c886868` fixes all three. It adds a third owned synthetic display/game, pre-transition event barriers plus committed post-completion/post-deletion source updates with silence/closure assertions, exact cross-display read/ID isolation, and `d.host_id = g.host_id` in the profile display predicate.
+
+The pinned final selectors and local gates pass with zero skips; evidence is `.artifacts/p02/p02-review2-5b81bfe-*` and `docs/evidence/P02.md`. The prior BLOCK report is retained at `.artifacts/p02/p02-phase-review.md`; it is superseded by the pending fresh follow-up review, not silently treated as a pass.
+
+**Next exact action:** obtain and consume a fresh parent-controlled follow-up P02 phase review of `5b81bfeb4f1fc9ceea99da02342eaec70c886868`. Keep P02 `in_progress`; do not start P03 or claim phase acceptance until that decision is recorded.
 
 ### Current P02.T1 checkpoint — 2026-09-12
 
