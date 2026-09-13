@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P03.T3: run dry-run and actual full-corpus import into a fresh owned local depot, then verify counts/digests/distributions and real API retrieval; keep the source read-only and corpus private.",
+  "next_action": "Begin P04.T1: create an isolated real browser-test stack with deterministic synthetic fixtures; keep the private P03 corpus depot/snapshot local and ignored.",
   "phases": [
     {
       "id": "P00",
@@ -183,7 +183,7 @@
     {
       "id": "P03",
       "title": "Import the original question corpus safely",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "P02"
       ],
@@ -202,33 +202,33 @@
         {
           "id": "P03.T3",
           "title": "Import all actual questions locally and verify",
-          "status": "pending"
+          "status": "complete"
         }
       ],
       "criteria": [
         {
           "id": "P03.C1",
           "requirement": "`pnpm test:import` passes missing-file, preservation, invalid-row, interrupted/resume, repeat and destination-safety cases.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P03.md"]
         },
         {
           "id": "P03.C2",
           "requirement": "Dry-run reports the real source/destination without inserting rows; the actual import succeeds with source snapshot count equal to target imported count and zero unexplained rejected rows.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P03.md"]
         },
         {
           "id": "P03.C3",
           "requirement": "`pnpm verify:corpus -- --source <snapshot> --depot <depot>` passes all-field canonical digests, distributions, SQLite integrity/FK checks and an idempotent rerun.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P03.md"]
         },
         {
           "id": "P03.C4",
           "requirement": "Source was never opened writable and no private data is staged; API retrieval works after starting TrailBase. Store only sanitized counts/digests/commands in committed evidence.",
-          "status": "pending",
-          "evidence": []
+          "status": "passed",
+          "evidence": ["docs/evidence/P03.md"]
         }
       ]
     },

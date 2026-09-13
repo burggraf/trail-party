@@ -24,6 +24,7 @@
     "build:backend:probe": "vite build --config tests/backend/fixture/vite.config.ts && jco componentize .artifacts/p01-t2/component/index.mjs --wit node_modules/trailbase-wasm/wit -o .artifacts/p01-t2/component/probe.wasm",
     "build:backend:app": "vite build --config backend/functions/vite.config.ts && jco componentize .artifacts/p02-t2/application/index.mjs --wit node_modules/trailbase-wasm/wit -o .artifacts/p02-t2/application/profile.wasm",
     "import:questions": "python3 scripts/import_questions.py",
+    "verify:corpus": "python3 scripts/verify_corpus.py",
     "test:backend": "node scripts/test-backend.mjs",
     "test:import": "python3 -m unittest discover -s tests/import -p 'test_*.py'"
   },

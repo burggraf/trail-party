@@ -88,6 +88,18 @@ class ImportQuestionsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
         return result
 
+    def run_verify(self, source, *, check=False):
+        result = subprocess.run(
+            ["pnpm", "verify:corpus", "--", "--source", str(source), "--depot", str(self.depot)],
+            cwd=REPOSITORY,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if check:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
     def report(self, result):
         self.assertTrue(result.stdout.strip(), result.stderr)
         return json.loads(result.stdout.strip().splitlines()[-1])
@@ -244,6 +256,19 @@ class ImportQuestionsTest(unittest.TestCase):
         self.assertEqual(manifest["error_count"], 0)
         self.assertEqual(manifest["distributions"]["difficulty"], {"easy": 1, "hard": 1, "medium": 1})
         self.assertEqual(manifest["source_digest"], manifest["target_digest"])
+
+    def test_verify_corpus_checks_integrity_and_runs_idempotent_import(self):
+        self.make_source(self.valid_rows())
+        imported = self.report(self.run_import(check=True))
+        verified = self.run_verify(imported["snapshot"], check=True)
+        report = self.report(verified)
+        self.assertEqual(report["source_count"], 3)
+        self.assertEqual(report["target_count"], 3)
+        self.assertEqual(report["source_digest"], report["target_digest"])
+        self.assertEqual(report["rerun"]["imported_count"], 0)
+        self.assertEqual(report["rerun"]["skipped_count"], 3)
+        self.assertEqual(report["integrity_check"], "ok")
+        self.assertEqual(report["foreign_key_errors"], 0)
 
     def test_invalid_required_or_numeric_values_fail_without_partial_rows(self):
         bad = list(self.valid_rows()[0])

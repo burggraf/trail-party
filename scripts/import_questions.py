@@ -214,13 +214,10 @@ def source_batches(connection: sqlite3.Connection):
         yield batch
 
 
-def digest_rows(rows) -> str:
-    digest = hashlib.sha256()
-    for row in rows:
-        payload = dict(zip(TARGET_COLUMNS, row))
-        digest.update(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8"))
-        digest.update(b"\n")
-    return digest.hexdigest()
+def update_digest(digest, row) -> None:
+    payload = dict(zip(TARGET_COLUMNS, row))
+    digest.update(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8"))
+    digest.update(b"\n")
 
 
 def target_schema(connection: sqlite3.Connection) -> None:
@@ -247,9 +244,17 @@ def target_rows(connection: sqlite3.Connection, source_ids: list[str]) -> dict[s
 
 
 def canonical_target_digest(connection: sqlite3.Connection, source_ids: list[str]) -> tuple[int, str]:
-    rows = target_rows(connection, source_ids)
-    ordered = [rows[source_id] for source_id in sorted(source_ids) if source_id in rows]
-    return len(ordered), digest_rows(ordered)
+    count = 0
+    digest = hashlib.sha256()
+    for start in range(0, len(source_ids), BATCH_SIZE):
+        batch_ids = source_ids[start : start + BATCH_SIZE]
+        rows = target_rows(connection, batch_ids)
+        for source_id in batch_ids:
+            row = rows.get(source_id)
+            if row is not None:
+                count += 1
+                update_digest(digest, row)
+    return count, digest.hexdigest()
 
 
 def write_manifest(path: Path, report: dict) -> None:
