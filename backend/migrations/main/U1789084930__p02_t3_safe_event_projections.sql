@@ -130,8 +130,8 @@ BEGIN
   INSERT INTO games_public_events (id, title, location, starts_at, duration_minutes, lifecycle, roster_locked_at, roster_version, version, updated_at)
   SELECT NEW.id, NEW.title, NEW.location, NEW.starts_at, NEW.duration_minutes, NEW.lifecycle, NEW.roster_locked_at, NEW.roster_version, NEW.version, NEW.updated_at
   WHERE NEW.deleted_at IS NULL;
-  INSERT INTO games_host_events (id, title, location, starts_at, duration_minutes, lifecycle, roster_locked_at, roster_version, version, updated_at)
-  SELECT NEW.id, NEW.title, NEW.location, NEW.starts_at, NEW.duration_minutes, NEW.lifecycle, NEW.roster_locked_at, NEW.roster_version, NEW.version, NEW.updated_at
+  INSERT INTO games_host_events (id, title, location, starts_at, duration_minutes, lifecycle, roster_locked_at, roster_version, version, updated_at, host_id, join_code, timers, auto_reveal)
+  SELECT NEW.id, NEW.title, NEW.location, NEW.starts_at, NEW.duration_minutes, NEW.lifecycle, NEW.roster_locked_at, NEW.roster_version, NEW.version, NEW.updated_at, NEW.host_id, NEW.join_code, NEW.timers, NEW.auto_reveal
   WHERE NEW.deleted_at IS NULL;
 END;
 

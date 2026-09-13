@@ -153,8 +153,52 @@ function sha256(input: Uint8Array): Uint8Array {
   return digest;
 }
 
-function requestHash(userId: string, displayName: string, operationId: string, issuedAt: number): Uint8Array {
-  return sha256(encoder.encode(`trail-party/profile/create\u0000${userId}\u0000${displayName}\u0000${operationId}\u0000${issuedAt}`));
+function concatenate(...values: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(values.reduce((length, value) => length + value.length, 0));
+  let offset = 0;
+  for (const value of values) {
+    result.set(value, offset);
+    offset += value.length;
+  }
+  return result;
+}
+
+function hmacSha256(key: Uint8Array, input: Uint8Array): Uint8Array {
+  const normalizedKey = key.length > 64 ? sha256(key) : key;
+  const innerPad = new Uint8Array(64);
+  const outerPad = new Uint8Array(64);
+  innerPad.fill(0x36);
+  outerPad.fill(0x5c);
+  for (let index = 0; index < normalizedKey.length; index += 1) {
+    innerPad[index] ^= normalizedKey[index];
+    outerPad[index] ^= normalizedKey[index];
+  }
+  return sha256(concatenate(outerPad, sha256(concatenate(innerPad, input))));
+}
+
+function auditHmacKey(tx: Transaction): Uint8Array {
+  const name = 'trail-party/audit/request-hmac/v1';
+  let rows = tx.query('SELECT value FROM server_secrets WHERE name = ?1', [name]);
+  if (rows.length === 0) {
+    const key = new Uint8Array(32);
+    const random = globalThis.crypto?.getRandomValues;
+    if (!random) throw new Error('Secure randomness is unavailable');
+    random.call(globalThis.crypto, key);
+    tx.execute('INSERT OR IGNORE INTO server_secrets (name, value) VALUES (?1, ?2)', [name, key]);
+    rows = tx.query('SELECT value FROM server_secrets WHERE name = ?1', [name]);
+  }
+  const value = rows[0]?.[0];
+  if (!value || typeof value !== 'object' || typeof (value as { length?: unknown }).length !== 'number') {
+    throw new Error('Invalid audit HMAC key');
+  }
+  const key = Uint8Array.from(value as ArrayLike<number>);
+  if (key.length !== 32) throw new Error('Invalid audit HMAC key');
+  return key;
+}
+
+function requestHash(tx: Transaction, userId: string, displayName: string, operationId: string, issuedAt: number): Uint8Array {
+  const canonical = encoder.encode(`trail-party/profile/create\u0000${userId}\u0000${displayName}\u0000${operationId}\u0000${issuedAt}`);
+  return hmacSha256(auditHmacKey(tx), canonical);
 }
 
 function safeInteger(value: unknown): number {
@@ -200,10 +244,10 @@ function createProfile(req: HttpRequest): HttpResponse {
   const user = req.user();
   if (!user) throw new HttpError(401, 'Authentication required');
   const command = parseCommand(req);
-  const hash = requestHash(user.id, command.displayName, command.operationId, command.issuedAt);
   const tx = new Transaction();
   let committed = false;
   try {
+    const hash = requestHash(tx, user.id, command.displayName, command.operationId, command.issuedAt);
     const verified = tx.query(
       'SELECT id FROM _user WHERE id = base64_url_safe(?1) AND email IS NOT NULL AND unverified_email IS NULL',
       [user.id],

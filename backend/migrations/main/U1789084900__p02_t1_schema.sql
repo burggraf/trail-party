@@ -409,6 +409,12 @@ CREATE TABLE audit_events (
   CHECK (outcome <> 'success' OR before_version IS NOT NULL OR after_version = 0)
 ) STRICT;
 
+CREATE TABLE server_secrets (
+  name TEXT PRIMARY KEY CHECK (length(name) BETWEEN 1 AND 128),
+  value BLOB NOT NULL CHECK (length(value) = 32),
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()) CHECK (created_at >= 0)
+) STRICT;
+
 CREATE INDEX questions_category_difficulty_level_id ON questions(category, difficulty, level, id);
 CREATE INDEX questions_subcategory_id ON questions(subcategory, id);
 CREATE UNIQUE INDEX games_join_code_unique ON games(join_code);
@@ -448,3 +454,4 @@ CREATE UNIQUE INDEX audit_user_operation ON audit_events(actor_user_id, operatio
 CREATE UNIQUE INDEX audit_device_operation ON audit_events(actor_device_id, operation_id) WHERE actor_device_id IS NOT NULL;
 CREATE INDEX audit_entity_created ON audit_events(entity_type, entity_id, created_at);
 CREATE INDEX audit_created ON audit_events(created_at);
+CREATE INDEX server_secrets_created ON server_secrets(created_at);

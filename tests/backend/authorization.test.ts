@@ -16,7 +16,7 @@ const SAFE_PROJECTIONS: Record<string, string[]> = {
 
 const PRIVATE_APIS = [
   'profiles', 'questions', 'rounds', 'games', 'game_questions', 'assignment_private',
-  'game_answers', 'answer_grades_private', 'used_question_history', 'displays', 'audit_events', 'pairing_limits',
+  'game_answers', 'answer_grades_private', 'used_question_history', 'displays', 'audit_events', 'server_secrets', 'pairing_limits',
 ];
 const DENIED_STATUSES = [400, 401, 403, 404, 405];
 
@@ -59,10 +59,16 @@ test('authority-forgery', { timeout: 120000 }, async t => {
   t.after(() => stack.close());
   const host = initClient(stack.base);
   const member = initClient(stack.base);
+  const opponent = initClient(stack.base);
   const foreignHost = initClient(stack.base);
   const anonymous = initClient(stack.base);
+  const unverified = stack.unverifiedClient;
+  const fixtureDisplay = stack.displayClient;
+  assert.ok(unverified, 'authority-forgery: authenticated-unverified fixture client is missing');
+  assert.ok(fixtureDisplay, 'authority-forgery: seeded display client is missing');
   await host.login(stack.accounts[0].email, stack.accounts[0].password);
   await member.login(stack.accounts[1].email, stack.accounts[1].password);
+  await opponent.login(stack.accounts[3].email, stack.accounts[3].password);
   await foreignHost.login(stack.accounts[2].email, stack.accounts[2].password);
 
   const safeEventTables: Record<string, string[]> = {
@@ -107,14 +113,42 @@ test('authority-forgery', { timeout: 120000 }, async t => {
       assert.equal(memberList.records.length, 0, `authority-forgery ${apiName}: member received host/device-only row`);
     }
 
+    const opponentList = await opponent.records(apiName).list({ pagination: { limit: 100 }, count: true, order: ['id'] });
+    if (memberCanRead) {
+      assert.ok(opponentList.records.length > 0, `authority-forgery ${apiName}: opponent lost permitted scope`);
+      for (const value of opponentList.records) assertSafeRow(value, fields, `authority-forgery ${apiName} opponent list`);
+    } else {
+      assert.equal(opponentList.total_count, 0, `authority-forgery ${apiName}: opponent saw host/device-only row`);
+      assert.equal(opponentList.records.length, 0, `authority-forgery ${apiName}: opponent received host/device-only row`);
+    }
+
+    const displayList = await fixtureDisplay.records(apiName).list({ pagination: { limit: 100 }, count: true, order: ['id'] });
+    if (apiName === 'games_host') {
+      assert.equal(displayList.total_count, 0, `authority-forgery ${apiName}: display saw host-only setup row`);
+      assert.equal(displayList.records.length, 0, `authority-forgery ${apiName}: display received host-only setup row`);
+    } else {
+      assert.ok(displayList.records.length > 0, `authority-forgery ${apiName}: display lost permitted scope`);
+      for (const value of displayList.records) assertSafeRow(value, fields, `authority-forgery ${apiName} display list`);
+    }
+
+    const unverifiedList = await unverified.records(apiName).list({ pagination: { limit: 100 }, count: true });
+    assert.equal(unverifiedList.total_count, 0, `authority-forgery ${apiName}: authenticated-unverified list leaked scoped rows`);
+    assert.equal(unverifiedList.records.length, 0, `authority-forgery ${apiName}: authenticated-unverified list returned rows`);
+    await assertDenied(
+      () => unverified.records(apiName).read(row.id as string),
+      `authority-forgery ${apiName} authenticated-unverified read`,
+    );
+    await assertDenied(
+      () => unverified.records(apiName).subscribe(row.id as string),
+      `authority-forgery ${apiName} authenticated-unverified SSE`,
+    );
     await assertDenied(() => anonymous.records(apiName).list(), `authority-forgery ${apiName} anonymous list`);
 
-    try {
-      const expanded = await api.list({ expand: ['private', '_user', 'game', 'question', 'grade'] });
-      for (const value of expanded.records) assertSafeRow(value, fields, `authority-forgery ${apiName} expand`);
-    } catch (error) {
-      assert.ok(isDenied(error), `authority-forgery ${apiName}: unexpected expand error`);
-    }
+    await assert.rejects(
+      () => api.list({ expand: ['private', '_user', 'game', 'question', 'grade'] }),
+      error => isDenied(error),
+      `authority-forgery ${apiName}: relation expansion was not denied`,
+    );
 
     await assertDenied(
       () => anonymous.records(apiName).subscribeAll({
@@ -203,7 +237,7 @@ test('authority-forgery', { timeout: 120000 }, async t => {
   assert.equal(unchanged.host_id, host.user()?.id, 'authority-forgery: host identity was changed by forged update');
   assert.equal(unchanged.id, targetGameId, 'authority-forgery: game identity was changed by forged update');
 
-  type FixtureAction = 'update' | 'delete' | 'member-update' | 'member-revoke' | 'display-update' | 'display-revoke';
+  type FixtureAction = 'update' | 'delete' | 'member-update' | 'member-revoke' | 'display-update' | 'display-revoke' | 'display-complete' | 'display-delete';
   const fixtureRequest = (client: typeof host, action: FixtureAction, id: string, version: number) => client.fetch('/__p02/authorization-fixture', {
     method: 'POST',
     body: JSON.stringify({ action, id, version }),
@@ -246,8 +280,25 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     memberReader.releaseLock();
   }
 
-  const fixtureDisplay = stack.displayClient;
-  assert.ok(fixtureDisplay, 'authority-forgery: seeded display client is missing');
+  const secondDisplay = stack.secondDisplayClient;
+  assert.ok(secondDisplay, 'authority-forgery: second seeded display client is missing');
+  const secondDisplayRows = (await foreignHost.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] })).records;
+  assert.equal(secondDisplayRows.length, 1, 'authority-forgery: second display fixture is not host-scoped');
+  const secondDisplayRow = secondDisplayRows[0] as Row;
+  const secondDisplayId = secondDisplayRow.id as string;
+  assertSafeRow(await secondDisplay.records('displays_public').read(secondDisplayId), SAFE_PROJECTIONS.displays_public,
+    'authority-forgery second display REST');
+  await fixtureRequest(foreignHost, 'display-complete', secondDisplayId, Number(secondDisplayRow.version));
+  await assertDenied(
+    () => secondDisplay.records('displays_public').read(secondDisplayId),
+    'authority-forgery completed display scope',
+  );
+  await fixtureRequest(foreignHost, 'display-delete', secondDisplayId, Number(secondDisplayRow.version));
+  await assertDenied(
+    () => secondDisplay.records('displays_public').read(secondDisplayId),
+    'authority-forgery deleted display scope',
+  );
+
   const fixtureDisplayRow = hostRows.get('displays_public')!;
   const fixtureDisplayId = fixtureDisplayRow.id as string;
   await assertDenied(

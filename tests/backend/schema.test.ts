@@ -456,7 +456,7 @@ test('schema-two-depots', { timeout: 120000 }, async t => {
     for (const table of [
       'profiles', 'questions', 'games', 'rounds', 'game_teams', 'game_players', 'game_questions',
       'assignment_private', 'game_state_public', 'game_answers', 'answer_grades_private',
-      'used_question_history', 'displays', 'pairing_limits', 'online', 'audit_events',
+      'used_question_history', 'displays', 'pairing_limits', 'online', 'audit_events', 'server_secrets',
     ]) assert.ok(names.has(table), `schema-two-depots depot ${depotNumber}: ${table} table is missing`);
     const sql = new Map(objects.map(object => [object.name, object.sql ?? '']));
     assert.match(sql.get('profiles') ?? '', /CHECK\s*\(is_uuid\(id\)\)/i,
@@ -510,12 +510,11 @@ test('projection-rest-expand-sse', { timeout: 90000 }, async t => {
     assert.equal(filtered.total_count, 1, `projection-rest-expand-sse ${apiName}: safe ID filter did not select its row`);
     assert.equal(filtered.records.length, 1, `projection-rest-expand-sse ${apiName}: filtered list returned the wrong number of rows`);
 
-    try {
-      const expanded = await bounded(api.list({ expand: ['private', '_user', 'game'] }), `${apiName} expand`);
-      for (const record of expanded.records) assertSafeRecord(record, fields, `projection-rest-expand-sse ${apiName} expand`);
-    } catch (error) {
-      assert.ok(isDenied(error), `projection-rest-expand-sse ${apiName}: unexpected expand failure (${describeError(error)})`);
-    }
+    await assert.rejects(
+      () => bounded(api.list({ expand: ['private', '_user', 'game'] }), `${apiName} expand`),
+      error => isDenied(error),
+      `projection-rest-expand-sse ${apiName}: relation expansion was not denied`,
+    );
   }
 
   const excludedColumns: Record<string, string> = {

@@ -26,7 +26,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
+  read_access_rule: "((EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL))))) OR EXISTS (SELECT 1 FROM games AS g JOIN displays AS d ON d.game_id = g.id AND d.host_id = g.host_id WHERE g.id = _ROW_.id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))"
 }
 
 record_apis {
@@ -35,7 +35,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "_ROW_.host_id = _USER_.id"
+  read_access_rule: "EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL AND _ROW_.host_id = _USER_.id)"
 }
 
 record_apis {
@@ -44,7 +44,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
+  read_access_rule: "((EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL))))) OR EXISTS (SELECT 1 FROM games AS g JOIN displays AS d ON d.game_id = g.id AND d.host_id = g.host_id WHERE g.id = _ROW_.game_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))"
 }
 
 record_apis {
@@ -53,7 +53,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
+  read_access_rule: "((EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL))))) OR EXISTS (SELECT 1 FROM games AS g JOIN displays AS d ON d.game_id = g.id AND d.host_id = g.host_id WHERE g.id = _ROW_.game_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))"
 }
 
 record_apis {
@@ -62,7 +62,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
+  read_access_rule: "((EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL))))) OR EXISTS (SELECT 1 FROM games AS g JOIN displays AS d ON d.game_id = g.id AND d.host_id = g.host_id WHERE g.id = _ROW_.id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))"
 }
 
 record_apis {
@@ -71,7 +71,7 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM displays AS d WHERE d.id = _ROW_.id AND ((d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL) OR (d.host_id = _USER_.id AND d.revoked_at IS NULL)))"
+  read_access_rule: "EXISTS (SELECT 1 FROM displays AS d WHERE d.id = _ROW_.id AND d.revoked_at IS NULL AND ((d.DEVICE_USER_ID = _USER_.id AND (d.game_id IS NULL OR EXISTS (SELECT 1 FROM games AS g WHERE g.id = d.game_id AND g.host_id = d.host_id AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))) OR (d.host_id = _USER_.id AND EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = d.game_id AND g.host_id = d.host_id AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))))"
 }
 
 record_apis {
@@ -80,5 +80,5 @@ record_apis {
   acl_authenticated: [READ]
   enable_subscriptions: true
   listing_hard_limit: 100
-  read_access_rule: "EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL)) OR EXISTS (SELECT 1 FROM displays AS d WHERE d.game_id = g.id AND d.host_id = g.host_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.lifecycle <> 'completed')) )"
+  read_access_rule: "((EXISTS (SELECT 1 FROM _user AS identity WHERE identity.id = _USER_.id AND identity.email IS NOT NULL AND identity.unverified_email IS NULL) AND EXISTS (SELECT 1 FROM games AS g WHERE g.id = _ROW_.game_id AND g.deleted_at IS NULL AND (g.host_id = _USER_.id OR EXISTS (SELECT 1 FROM game_players AS gp WHERE gp.game_id = g.id AND gp.user_id = _USER_.id AND (gp.left_at IS NULL OR g.roster_locked_at IS NOT NULL))))) OR EXISTS (SELECT 1 FROM games AS g JOIN displays AS d ON d.game_id = g.id AND d.host_id = g.host_id WHERE g.id = _ROW_.game_id AND d.DEVICE_USER_ID = _USER_.id AND d.revoked_at IS NULL AND g.deleted_at IS NULL AND g.lifecycle <> 'completed'))"
 }

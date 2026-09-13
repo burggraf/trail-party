@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import test from 'node:test';
 import { FetchError, initClient, type Client } from 'trailbase';
 import { startStack } from './stack.ts';
@@ -390,12 +390,33 @@ test('auth-local-mail', { timeout: 120000 }, async t => {
     const audit = await stack.offlineSqlite([
       'import sqlite3, sys',
       'db = sqlite3.connect(sys.argv[1])',
-      'count = db.execute("SELECT COUNT(*) FROM audit_events WHERE actor_user_id = ? AND operation_id = ?", (bytes.fromhex(sys.argv[2]), sys.argv[3])).fetchone()[0]',
-      'print(count)',
+      'row = db.execute("SELECT COUNT(*), hex(request_hash) FROM audit_events WHERE actor_user_id = ? AND operation_id = ?", (bytes.fromhex(sys.argv[2]), sys.argv[3])).fetchone()',
+      'print(f"{row[0]} {row[1]}")',
       'db.close()',
     ].join('; '), [identity, profileCommand.operation_id]);
     assert.equal(audit.status, 0, `profile-command-audit-unique: sqlite inspection failed: ${audit.stderr}`);
-    assert.equal(audit.stdout.trim(), '1', 'profile-command-audit-unique: replay created a second audit row');
+    const [count, requestHash] = audit.stdout.trim().split(/\s+/u);
+    assert.equal(count, '1', 'profile-command-audit-unique: replay created a second audit row');
+    const plainHash = createHash('sha256')
+      .update(`trail-party/profile/create\u0000${verifiedClient.user()!.id}\u0000${profileCommand.display_name}\u0000${profileCommand.operation_id}\u0000${profileCommand.issued_at}`)
+      .digest('hex')
+      .toUpperCase();
+    assert.equal(requestHash?.length, 64, 'profile-command-audit-hmac: request digest must be 32 bytes');
+    assert.notEqual(requestHash, plainHash, 'profile-command-audit-hmac: request digest is an unkeyed SHA-256');
+
+    const replayAfterRestart = await nativeRequest(verifiedClient, '/api/trail-party/profile', {
+      method: 'POST',
+      body: JSON.stringify(profileCommand),
+    });
+    await expectStatus(replayAfterRestart, 200, 'profile-command-audit-hmac restart replay');
+    const persistedHash = await stack.offlineSqlite([
+      'import sqlite3, sys',
+      'db = sqlite3.connect(sys.argv[1])',
+      'print(db.execute("SELECT hex(request_hash) FROM audit_events WHERE actor_user_id = ? AND operation_id = ?", (bytes.fromhex(sys.argv[2]), sys.argv[3])).fetchone()[0])',
+      'db.close()',
+    ].join('; '), [identity, profileCommand.operation_id]);
+    assert.equal(persistedHash.status, 0, `profile-command-audit-hmac: persisted hash inspection failed: ${persistedHash.stderr}`);
+    assert.equal(persistedHash.stdout.trim(), requestHash, 'profile-command-audit-hmac: digest changed after restart');
   }, failures);
 
   await runNamedCheck('refresh-retains-identity', async () => {
