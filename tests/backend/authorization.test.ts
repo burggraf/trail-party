@@ -297,6 +297,10 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     'authority-forgery second display REST');
   assert.notEqual(secondDisplayId, fixtureDisplayId, 'authority-forgery: paired display listed its foreign display');
   await assertDenied(
+    () => foreignHost.records('displays_public').read(fixtureDisplayId),
+    'authority-forgery foreign host primary display read',
+  );
+  await assertDenied(
     () => secondDisplay.records('displays_public').read(fixtureDisplayId),
     'authority-forgery paired display foreign primary read',
   );
@@ -304,6 +308,14 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     () => fixtureDisplay.records('displays_public').read(secondDisplayId),
     'authority-forgery primary display foreign read',
   );
+  const primaryDisplayList = await fixtureDisplay.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] });
+  assert.equal(primaryDisplayList.total_count, 1, 'authority-forgery primary paired device saw a foreign display count');
+  assert.deepEqual(primaryDisplayList.records.map(row => row.id), [fixtureDisplayId],
+    'authority-forgery primary paired device list was not self-only');
+  const secondaryDisplayList = await secondDisplay.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] });
+  assert.equal(secondaryDisplayList.total_count, 1, 'authority-forgery secondary paired device saw a foreign display count');
+  assert.deepEqual(secondaryDisplayList.records.map(row => row.id), [secondDisplayId],
+    'authority-forgery secondary paired device list was not self-only');
 
   const completionStream = await bounded(secondDisplay.records('displays_public').subscribeAll({
     filters: [{ column: 'id', op: 'equal' as const, value: secondDisplayId }],
@@ -348,6 +360,19 @@ test('authority-forgery', { timeout: 120000 }, async t => {
     () => thirdDisplay.records('displays_public').read(secondDisplayId),
     'authority-forgery third display foreign secondary read',
   );
+  await assertDenied(
+    () => opponent.records('displays_public').read(fixtureDisplayId),
+    'authority-forgery third host primary display read',
+  );
+  await assertDenied(
+    () => opponent.records('displays_public').read(secondDisplayId),
+    'authority-forgery third host secondary display read',
+  );
+
+  const tertiaryDisplayList = await thirdDisplay.records('displays_public').list({ pagination: { limit: 100 }, count: true, order: ['id'] });
+  assert.equal(tertiaryDisplayList.total_count, 1, 'authority-forgery tertiary paired device saw a foreign display count');
+  assert.deepEqual(tertiaryDisplayList.records.map(row => row.id), [thirdDisplayId],
+    'authority-forgery tertiary paired device list was not self-only');
 
   const deletionStream = await bounded(thirdDisplay.records('displays_public').subscribeAll({
     filters: [{ column: 'id', op: 'equal' as const, value: thirdDisplayId }],
