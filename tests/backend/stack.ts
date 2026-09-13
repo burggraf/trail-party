@@ -380,7 +380,10 @@ export async function startStack({ source = 'capabilities' }: { source?: 'capabi
     await cp(migrationPath, join(depot, 'migrations'), { recursive: true });
     await mkdir(join(depot, 'wasm'), { recursive: true });
     await cp('.artifacts/p01-t2/component/probe.wasm', join(depot, 'wasm', 'probe.wasm'));
-    if (source === 'auth') await startMailpit();
+    if (source === 'auth') {
+      await cp('.artifacts/p02-t2/application/profile.wasm', join(depot, 'wasm', 'profile.wasm'));
+      await startMailpit();
+    }
     await start();
     // v0.33.14 user-add SQL references the removed verified column. Use the supported
     // admin API for synthetic baseline accounts; never parse/log bootstrap passwords.

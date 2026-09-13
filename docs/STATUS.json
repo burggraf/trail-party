@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "P02.T2 implement the smallest real local-mail auth/profile and validated return-to-origin flows; first resolve the pinned native reset-token reuse boundary before claiming C2.",
+  "next_action": "P02.T2 is committed with final gates and Astra/medium review complete; parent must decide whether its evidence passes P02.C2, while retaining the owner-approved native reset replay residual.",
   "phases": [
     {
       "id": "P00",

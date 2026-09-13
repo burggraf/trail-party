@@ -9,4 +9,4 @@
   <Button href="/auth?role=host" variant="outline">Host a game</Button>
   <Button href="/display" variant="outline">Open display</Button>
 </nav>
-<p class="text-sm text-muted-foreground">Foundation preview: accounts, games and display pairing are not available yet.</p>
+<p class="text-sm text-muted-foreground">Accounts use real verified TrailBase authentication. Games and display pairing are not available yet.</p>

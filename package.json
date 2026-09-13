@@ -13,7 +13,7 @@
     "plan:status": "node scripts/plan.mjs status",
     "test:plan": "node --test scripts/plan.test.mjs",
     "test:scaffold": "node --test scripts/scaffold.test.mjs",
-    "dev": "node scripts/dev.mjs",
+    "dev": "pnpm build:backend:app && node scripts/dev.mjs --with-app-wasm",
     "test:bootstrap": "node --test --test-timeout=60000 scripts/bootstrap.test.mjs",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint .",
@@ -22,6 +22,7 @@
     "test:shell": "playwright test --config playwright.shell.config.ts",
     "tauri": "tauri",
     "build:backend:probe": "vite build --config tests/backend/fixture/vite.config.ts && jco componentize .artifacts/p01-t2/component/index.mjs --wit node_modules/trailbase-wasm/wit -o .artifacts/p01-t2/component/probe.wasm",
+    "build:backend:app": "vite build --config backend/functions/vite.config.ts && jco componentize .artifacts/p02-t2/application/index.mjs --wit node_modules/trailbase-wasm/wit -o .artifacts/p02-t2/application/profile.wasm",
     "test:backend": "node scripts/test-backend.mjs"
   },
   "devDependencies": {

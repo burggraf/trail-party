@@ -45,9 +45,11 @@ tests/                           # unit, backend, import, E2E and native checks
 
 `tests/unit`, `tests/backend`, `tests/e2e`, `tests/fixtures`, `tests/native`. Runtime depots, generated credentials and downloads live in ignored `.local/` or `.artifacts/`. Version SQL/config outside writable depots and copy it into each owned runtime instance through a deterministic bootstrap command.
 
-## P02 design contract — data model (not implementation)
+<a id="p02-design-contract--data-model-not-implementation"></a>
 
-This contract replaces the preliminary table sketch. P02 remains pending/unstarted; no migration, application API or gameplay has been implemented by writing this document. [API](API.md) defines the closed endpoint/projection inventory; [ACCESS](ACCESS.md) defines every actor/operation and named negative check. P01 capability fixtures are not application permissions. P02 creates schema/constraints and synthetic security fixtures; P03 imports questions; P05 populates setup/assignment/history; P06 adds joining/teams/presence; P07 adds answers/state/grading; P08 adds timers; P09/P10 add complete display/recovery behavior. Do not implement those later commands merely to seed a P02 test.
+## P02 design contract — data model and current T1/T2 boundary
+
+This contract replaces the preliminary table sketch. P02 remains in progress, not phase-accepted: T1 migrations/projections and the narrow T2 native auth/profile/return-to subset now exist, while P02.T3 authorization, avatars/devices and gameplay remain pending. [API](API.md) defines the closed endpoint/projection inventory; [ACCESS](ACCESS.md) defines every actor/operation and named negative check. P01 capability fixtures are not application permissions. P02 creates schema/constraints and synthetic security fixtures; P03 imports questions; P05 populates setup/assignment/history; P06 adds joining/teams/presence; P07 adds answers/state/grading; P08 adds timers; P09/P10 add complete display/recovery behavior. Do not implement those later commands merely to seed a P02 test.
 
 ### Common column, FK and generated-contract rules
 

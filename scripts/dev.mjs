@@ -11,6 +11,7 @@ import { assertBackendVersion } from './setup-trailbase.mjs';
 import { inspectTree, safeDirectory } from './local-paths.mjs';
 
 const repository = resolve(import.meta.dirname, '..');
+const includeAppWasm = process.argv.includes('--with-app-wasm');
 const owner = `trail-party-dev-v1\n${repository}\n`;
 function port(value) {
   if (!/^[0-9]+$/.test(value) || Number(value) < 1 || Number(value) > 65535) throw new Error('Invalid port: use an integer from 1 to 65535');
@@ -125,6 +126,10 @@ export async function runDev({ spawnBackend = spawn, createFrontend = async conf
     await writeFile(configTemp, config, { flag: 'wx', mode: 0o600 });
     await rename(configTemp, join(depot, 'config.textproto'));
     await cp(join(repository, 'backend/migrations'), join(depot, 'migrations'), { recursive: true });
+    if (includeAppWasm) {
+      await mkdir(join(depot, 'wasm'), { recursive: true });
+      await cp(join(repository, '.artifacts/p02-t2/application/profile.wasm'), join(depot, 'wasm/profile.wasm'));
+    }
     running(); stage = 'backend';
     const backend = `http://127.0.0.1:${backendPort}`;
     const front = `http://127.0.0.1:${frontendPort}`;

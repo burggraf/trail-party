@@ -19,6 +19,7 @@ const commands = args[0] === 'capabilities'
       ]
     : [
         ['pnpm', ['build:backend:probe']],
+        ['pnpm', ['build:backend:app']],
         [process.execPath, ['--test', 'tests/backend/auth.test.ts', 'tests/backend/return-to-origin.test.ts']],
       ];
 for (const [command, flags] of commands) {
