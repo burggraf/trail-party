@@ -14,7 +14,7 @@
     "source_commit": "3f965de7ea516c43a54ca70a495e97f0c6d991ab",
     "sqlite": "3.53.2"
   },
-  "next_action": "Begin P04.T1: create an isolated real browser-test stack with deterministic synthetic fixtures; keep the private P03 corpus depot/snapshot local and ignored.",
+  "next_action": "Obtain the fresh independent P04 post-fix review, address any remaining finding, then record parent acceptance before beginning P05; keep the private P03 corpus depot/snapshot local and ignored.",
   "phases": [
     {
       "id": "P00",
